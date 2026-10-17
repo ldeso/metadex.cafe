@@ -90,8 +90,12 @@ test("dollars are approximate, with no break after the sign", () => {
 });
 
 test("large numbers of votes, and shares", () => {
-  assert.equal(compact(897_042_934_693_272_892_269_268n), "897K");
+  assert.equal(compact(897_042_934_693_272_892_269_268n), "897k");
   assert.equal(compact(1_166_155n * 10n ** 18n), "1.17M");
   assert.equal(compact(168_381_324n * 10n ** 18n), "168M");
+  assert.equal(compact(999_600n * 10n ** 18n), "1M", "rounded before it is scaled");
+  assert.equal(compact(1_234n * 10n ** 18n), "1.23k");
+  assert.equal(compact(999n * 10n ** 18n), "999");
+  assert.equal(compact(0n), "0");
   assert.equal(fraction(0.1667), "16.7%");
 });

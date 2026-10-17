@@ -485,7 +485,7 @@ describe("the page against a fork of Base", { timeout: 600_000 }, () => {
     assert.equal(compared, false, "all of Hydrex waits until its table is on the screen");
     await page.goto(`${SITE}/#last-epoch`);
     const table = page.locator("#last-epoch .earnings");
-    assert.equal(await table.locator(".ours.votes").innerText(), "897K, or 1.17M Earning Power");
+    assert.equal(await table.locator(".ours.votes").innerText(), "897k, or 1.17M Earning Power");
     assert.equal(await table.locator(".ours.pools").innerText(), "27 pools");
     assert.match(await table.locator(".ours.per-votes").innerText(), /^≈\s\$0\.7\d$/);
     await page.locator("#last-epoch .all-failed").getByText("Reading all of Hydrex failed.").waitFor();

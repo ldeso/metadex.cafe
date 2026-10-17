@@ -22,9 +22,19 @@ const and = new Intl.ListFormat(LANG, { type: "conjunction" });
 
 export const units = (value: bigint): string => whole.format(value / 10n ** 18n);
 
-const compactNumber = new Intl.NumberFormat(LANG, { notation: "compact", maximumSignificantDigits: 3 });
-// Large token amounts, as "897K" or "1.17M".
-export const compact = (value: bigint): string => compactNumber.format(Number(value / 10n ** 15n) / 1000);
+const threeDigits = new Intl.NumberFormat(LANG, { maximumSignificantDigits: 3 });
+const SCALES: [number, string][] = [
+  [1e9, "G"],
+  [1e6, "M"],
+  [1e3, "k"],
+];
+// Large numbers of votes, with 18 decimals, with SI prefixes: "897k", "1.17M". Browsers' own compact notation changes
+// with their locale data, as "897K" in older ones and "1.17m" in newer ones, so the page writes it the same in all.
+export function compact(value: bigint): string {
+  const rounded = Number((Number(value / 10n ** 15n) / 1000).toPrecision(3));
+  const [scale, suffix] = SCALES.find(([scale]) => rounded >= scale) ?? [1, ""];
+  return `${threeDigits.format(rounded / scale)}${suffix}`;
+}
 
 const dollars = (digits: number) =>
   new Intl.NumberFormat(LANG, {
