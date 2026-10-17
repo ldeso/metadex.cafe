@@ -6,6 +6,7 @@ export const weekStart = (time: number): number => time - (time % WEEK);
 
 const whole = new Intl.NumberFormat(LANG, { maximumFractionDigits: 0 });
 const percent = new Intl.NumberFormat(LANG, { style: "percent", maximumFractionDigits: 2 });
+const roughPercent = new Intl.NumberFormat(LANG, { style: "percent", maximumFractionDigits: 1 });
 const utcDay = new Intl.DateTimeFormat(LANG, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 const DAY_AND_TIME: Intl.DateTimeFormatOptions = {
   weekday: "short",
@@ -21,6 +22,27 @@ const and = new Intl.ListFormat(LANG, { type: "conjunction" });
 
 export const units = (value: bigint): string => whole.format(value / 10n ** 18n);
 
+const compactNumber = new Intl.NumberFormat(LANG, { notation: "compact", maximumSignificantDigits: 3 });
+// Large token amounts, as "897K" or "1.17M".
+export const compact = (value: bigint): string => compactNumber.format(Number(value / 10n ** 15n) / 1000);
+
+const dollars = (digits: number) =>
+  new Intl.NumberFormat(LANG, {
+    style: "currency",
+    currency: "USD",
+    currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+const [cents, noCents] = [dollars(2), dollars(0)];
+// Approximate dollars, from prices that are themselves approximate: "≈ $692", "≈ $0.77", "< $0.01", with no break
+// after the sign.
+export function usd(value: number): string {
+  if (value === 0) return noCents.format(0);
+  if (value > 0 && value < 0.005) return `<\u00a0${cents.format(0.01)}`;
+  return `≈\u00a0${(Math.abs(value) >= 100 ? noCents : cents).format(value)}`;
+}
+
 // Hydrex shows votes × 1.3 as Earning Power.
 export function earningPower(votes: bigint): string {
   const power = (votes * 13n) / 10n;
@@ -28,6 +50,7 @@ export function earningPower(votes: bigint): string {
 }
 
 export const bps = (value: bigint): string => percent.format(Number(value) / 10_000);
+export const fraction = (value: number): string => roughPercent.format(value);
 
 const FRACTIONS: Record<number, string> = {
   0: "none",

@@ -15,6 +15,7 @@ import {
   type Hex,
 } from "viem";
 import { CONDUIT, RPCS, VOTER, VOTING_ESCROW } from "../src/config.ts";
+import { readEarnings, sharesOf } from "../src/earnings.ts";
 import { WEEK } from "../src/format.ts";
 
 const FORK_URL = process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
@@ -39,6 +40,19 @@ const LIQUID_HYDREX = getAddress("0x809F8175b8F60960dF2bc7a78a7C4Eb04d138AF0");
 const LOCK_MAXI = getAddress("0x53388a4E98Bb56F8571433F5461010Fc287929d3");
 const USDC = getAddress("0xE57b3Ea02336B9b418cA523aB5aD6f479d93bD1D");
 const RECIPIENT = getAddress("0x000000000000000000000000000000000000beef");
+// Tokens that Base's own node runs, such as GOOGLc and cbZEC: their code is the byte 0xef, which anvil cannot run. A call
+// to one burns all its gas, and fails the page's whole batch of reads. Emptied, they read as tokens the page cannot
+// count, as on a node that does not know them.
+const NATIVE: Address[] = [
+  "0xb200000000000000000000c2e324d24d7eecd1fb",
+  "0xb20000000000000000000078ee7ce2fe4908108c",
+  "0xb2000000000000000000008bc8786b856e61707c",
+  "0xb2000000000000000000004c27f6523082f41d01",
+  "0xb2000000000000000000002d0ba3164cc74f58b7",
+  "0xb2000000000000000000008501b13360000cb2ec",
+  "0xb200000000000000000000451d033a5000cb479e",
+  "0xb200000000000000000000856a95738c92feed01",
+];
 
 // The VotingEscrow's gas depends on the block's time, and anvil estimates at another time than it mines at, so the test
 // wallet sets a limit as a wallet's margin would.
@@ -68,6 +82,18 @@ async function view(to: Address, functionName: string, args: unknown[]): Promise
   const data = encodeFunctionData({ abi, functionName, args } as never);
   const reply = await anvil<Hex>("eth_call", [{ to, data }, "latest"]);
   return decodeFunctionResult({ abi, functionName, data: reply } as never) as Address;
+}
+
+// The page gives an RPC five seconds a request, and anvil reads the state it lacks from FORK_URL one slot at a time:
+// Node makes the page's first reads of the reward contracts with no time limit, so that the page finds them cached.
+async function warm(reads: () => Promise<unknown>): Promise<void> {
+  const original = globalThis.fetch;
+  globalThis.fetch = (_, init) => original(ANVIL, { ...init, signal: null });
+  try {
+    await reads();
+  } finally {
+    globalThis.fetch = original;
+  }
 }
 
 async function expectApprovals(ids: bigint[], delegate: Address, claimer: Address): Promise<void> {
@@ -269,6 +295,7 @@ const group = (page: Page, name: string) =>
 const review = (page: Page) => page.locator("#review");
 const homeTitle = (page: Page) => page.getByRole("heading", { name: "Your Hydrex votes, working for the climate" });
 const appTitle = (page: Page) => page.getByRole("heading", { name: "Your accounts", level: 1 });
+const howTitle = (page: Page) => page.getByRole("heading", { name: "How it works", level: 1 });
 
 // Through the join's first two steps, to what the wallet will ask.
 async function toWallet(page: Page): Promise<void> {
@@ -300,7 +327,8 @@ async function confirm(page: Page): Promise<void> {
   await review(page).getByRole("button", { name: "Close" }).click();
 }
 
-describe("the page against a fork of Base", { timeout: 300_000 }, () => {
+// The first reads of the reward contracts, through anvil from FORK_URL, take most of a minute.
+describe("the page against a fork of Base", { timeout: 600_000 }, () => {
   before(async () => {
     node = spawn(
       "anvil",
@@ -316,6 +344,7 @@ describe("the page against a fork of Base", { timeout: 300_000 }, () => {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
+    for (const token of NATIVE) await anvil("anvil_setCode", [token, "0x"]);
     for (const owner of [MEMBER, NEWCOMER, ELSEWHERE, LEAVER, ENDED]) {
       await anvil("anvil_setBalance", [owner, "0x16345785d8a0000"]); // 0.1 ETH
     }
@@ -350,7 +379,7 @@ describe("the page against a fork of Base", { timeout: 300_000 }, () => {
       .waitFor();
     assert.match(await numbers.locator(".tonnes").innerText(), /^\d[\d,]*$/);
     assert.match(
-      await numbers.locator("time").innerText(),
+      await numbers.locator("time.week-end-when").innerText(),
       /^Thu,? 22 Oct,? 00:00 UTC \(Thu,? 22 Oct,? 02:00 your time\)$/,
     );
     await shoot(page, "home-390-light");
@@ -388,6 +417,84 @@ describe("the page against a fork of Base", { timeout: 300_000 }, () => {
     await homeTitle(page).waitFor();
     assert.equal(await appTitle(page).isVisible(), false);
     await page.getByText("These numbers are read from Base by the page's script, which has not run.").waitFor();
+    await page.goto(`${SITE}/#carbon`);
+    await page.getByRole("heading", { name: "Whose name is on them" }).waitFor();
+    assert.equal(await homeTitle(page).isVisible(), false);
+    assert.equal(await howTitle(page).isVisible(), true, "a section's address shows its view");
+    await page.getByText("What the votes earned is read from Base by the page's script, which has not run.").waitFor({
+      state: "attached",
+    });
+  });
+
+  test("How it works at its address; a link in the review closes it, and Back keeps the ticks", async () => {
+    const { page, violations } = await connected({ owner: ELSEWHERE }, { width: 390, height: 844 });
+    await pick(page, 2435, 2439);
+    await page.getByRole("button", { name: "Join with 2 accounts" }).click();
+    await review(page).getByRole("heading", { name: "Before you join" }).waitFor();
+    await review(page).getByRole("link", { name: "More on unclaimed rewards" }).click();
+    assert.equal(await review(page).isVisible(), false);
+    await page.getByRole("heading", { name: /^It can claim the account's rewards at once/ }).waitFor();
+    assert.equal(await page.title(), "How it works · metaDEX Café");
+    assert.equal(new URL(page.url()).hash, "#unclaimed-rewards");
+    assert.equal(await appTitle(page).isVisible(), false);
+    await page.goBack();
+    await appTitle(page).waitFor();
+    assert.equal(await page.getByRole("checkbox", { name: "Pick Account #2439" }).isChecked(), true);
+    await page.getByRole("button", { name: "Join with 2 accounts" }).waitFor();
+    await page.locator("header").getByRole("link", { name: "How it works" }).click();
+    await howTitle(page).waitFor();
+    assert.equal(await page.evaluate(() => document.activeElement?.textContent), "How it works");
+    await page
+      .locator("#if-your-automation-stopped tr")
+      .filter({ hasText: "USDC" })
+      .locator(".still-in")
+      .getByText(/^\d[\d,]*$/)
+      .waitFor();
+    await shoot(page, "how-it-works-390-light");
+    await page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Who controls what" }).click();
+    await page.getByRole("heading", { name: "The admin key" }).waitFor();
+    assert.equal(new URL(page.url()).hash, "#who-controls-what");
+    assert.deepEqual(violations, []);
+  });
+
+  test("what the votes earned last epoch: on Home, for a member's account, and all of Hydrex once it shows", async () => {
+    await warm(async () => {
+      const found = (await readEarnings())!;
+      await sharesOf([9540n, 14485n], found.start, found.votes);
+    });
+    // All of Hydrex is too many reads for a fork to answer in time: the test refuses them, and sees when they start.
+    const everyPool = toFunctionSelector("function totalWeightAt(uint256)").slice(2);
+    let compared = false;
+    const refuse = (body: string) => {
+      const all = body.includes(everyPool);
+      compared ||= all;
+      return all;
+    };
+    const { page, violations } = await connected({ owner: MEMBER }, { width: 390, height: 844, refuse });
+    // 7,919 of the automation's 897,043 votes.
+    await account(page, 9540)
+      .getByText(/Last epoch, its votes earned ≈\s\$6\.1\d\./)
+      .waitFor({ timeout: 60_000 });
+    assert.equal(await account(page, 14485).locator(".earned").isVisible(), false, "its own account voted itself");
+    await shoot(page, "member-earned-390-light");
+    await page.getByRole("link", { name: "metaDEX Café" }).click();
+    const numbers = page.locator(".numbers");
+    assert.match(await numbers.locator(".last-per-votes").innerText(), /^≈\s\$0\.7\d$/);
+    assert.match(await numbers.locator("time.last-start").innerText(), /^Thu,? 8 Oct$/);
+    assert.match(await page.locator("#compared .last-per-power").innerText(), /^≈\s\$0\.\d\d$/);
+    assert.equal(compared, false, "all of Hydrex waits until its table is on the screen");
+    await page.goto(`${SITE}/#last-epoch`);
+    const table = page.locator("#last-epoch .earnings");
+    assert.equal(await table.locator(".ours.votes").innerText(), "897K, or 1.17M Earning Power");
+    assert.equal(await table.locator(".ours.pools").innerText(), "27 pools");
+    assert.match(await table.locator(".ours.per-votes").innerText(), /^≈\s\$0\.7\d$/);
+    await page.locator("#last-epoch .all-failed").getByText("Reading all of Hydrex failed.").waitFor();
+    assert.equal(compared, true);
+    assert.equal(await page.locator("#error").isVisible(), false, "the rest of the page is as it was");
+    await page.locator("#last-epoch .earned-pools summary").click();
+    await page.locator("#last-epoch .earned-pools tr").filter({ hasText: "AVNT / USDC" }).waitFor();
+    await shoot(page, "last-epoch-390-light");
+    assert.deepEqual(violations, []);
   });
 
   test("an address the page cannot decode opens Home, and the script still runs", async () => {
@@ -489,13 +596,19 @@ describe("the page against a fork of Base", { timeout: 300_000 }, () => {
     await account(page, 141).getByText("Joined Carbon Impact.").waitFor();
   });
 
-  test("closing between transactions stops there", async () => {
+  test("closing between transactions stops there; a link then opens in a new tab", async () => {
     const { page, sent } = await connected({ owner: ELSEWHERE });
     await pick(page, 2435, 2439);
     await page.getByRole("button", { name: "Join with 2 accounts" }).click();
     await toWallet(page);
     await review(page).getByRole("button", { name: "Confirm transaction 1 of 2" }).click();
     await review(page).getByText("closing stops here").waitFor();
+    const [tab] = await Promise.all([
+      page.context().waitForEvent("page"),
+      review(page).getByRole("link", { name: "How to check these calls" }).click(),
+    ]);
+    await tab.waitForURL(`${SITE}/#verify`);
+    await review(page).getByRole("button", { name: "Confirm transaction 2 of 2" }).waitFor();
     await review(page).getByRole("button", { name: "Close" }).click();
     await account(page, 2439).getByText("Joined Carbon Impact.").waitFor();
     await account(page, 2435)
@@ -696,6 +809,7 @@ describe("the page against a fork of Base", { timeout: 300_000 }, () => {
     await dialog.getByText("One Safe transaction, with 2 calls:").waitFor();
     await dialog.getByRole("button", { name: "Propose in Safe{Wallet}" }).click();
     await dialog.getByText("Proposed.").waitFor();
+    await dialog.getByRole("link", { name: "https://metadex.cafe/#for-co-signers" }).waitFor();
     type Received = { method: string; params: { txs: { to: string; data: string; value: string }[] } };
     const received = await page.evaluate(() => (window as unknown as { received: Received[] }).received);
     const leave = (id: bigint) => ({

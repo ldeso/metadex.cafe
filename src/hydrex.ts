@@ -27,6 +27,7 @@ const votingEscrowAbi = parseAbi([
   "function delegates(uint256 tokenId, uint48 timestamp) view returns (address)",
   "function getClaimRedirectApproved(uint256 tokenId) view returns (address)",
   "function getPastVotes(address account, uint256 timepoint) view returns (uint256)",
+  "function getVotes(address account) view returns (uint256)",
   "function getConduitApprovalConfig(address conduit) view returns (uint8[] actions, bool active, string description)",
   "function approvalLogic() view returns (address)",
   "function setConduitApproval(address conduit, uint256 tokenId, bool approve)",
@@ -40,6 +41,9 @@ const conduitAbi = parseAbi([
   "function treasuryFeeBps() view returns (uint256)",
   "function totalTonnesRetired() view returns (uint256)",
   "function retiringEntityName() view returns (string)",
+  "function beneficiaryString() view returns (string)",
+  "function impactBeneficiaryAddress() view returns (address)",
+  "function retirementMessage() view returns (string)",
   "function getEffectiveRecipientForOwner(address owner) view returns (address)",
 ]);
 
@@ -62,6 +66,10 @@ export type Relay = {
   feeBps: bigint;
   tonnes: bigint;
   entity: string;
+  // Who the retirements are on behalf of, by name and address, and their message: one set for every member.
+  beneficiary: string;
+  beneficiaryAddress: Address;
+  message: string;
   votes: bigint;
 };
 
@@ -105,18 +113,32 @@ function required(values: unknown[]): unknown[] {
 const epochAt = (time: unknown): number => weekStart(Number(time));
 
 export async function readRelay(): Promise<Relay> {
-  const [time, retireBps, feeBps, tonnes, entity] = required(
+  const [time, retireBps, feeBps, tonnes, entity, beneficiary, beneficiaryAddress, message] = required(
     await read([
       blockTime,
       conduit("retireBps"),
       conduit("treasuryFeeBps"),
       conduit("totalTonnesRetired"),
       conduit("retiringEntityName"),
+      conduit("beneficiaryString"),
+      conduit("impactBeneficiaryAddress"),
+      conduit("retirementMessage"),
     ]),
-  ) as [bigint, bigint, bigint, bigint, string];
+  ) as [bigint, bigint, bigint, bigint, string, string, Address, string];
   const epochStart = epochAt(time);
   const [votes] = required(await read([escrow("getPastVotes", CONDUIT, BigInt(epochStart))])) as [bigint];
-  return { time: Number(time), epochStart, retireBps, feeBps, tonnes, entity: clean(entity), votes };
+  return {
+    time: Number(time),
+    epochStart,
+    retireBps,
+    feeBps,
+    tonnes,
+    entity: clean(entity),
+    beneficiary: clean(beneficiary),
+    beneficiaryAddress,
+    message: clean(message),
+    votes,
+  };
 }
 
 export async function readAccounts(owner: Address): Promise<Holdings> {
@@ -272,6 +294,22 @@ export const release = (accounts: Account[]): Step[] =>
     if (!name) return [];
     return [approval(account, false, `leaves the ${name} automation.`, { address: account.delegate, name })];
   });
+
+export type Automation = { address: Address; name: string; voted: number; votes: bigint | undefined };
+
+// When each of Hydrex's other automations last voted, and the votes still delegated to it. A read that fails leaves 0,
+// or no votes.
+export async function readAutomations(): Promise<Automation[]> {
+  const found = await read(
+    others.flatMap(({ address }) => [call(VOTER, voterAbi, "lastVoted", address), escrow("getVotes", address)]),
+  );
+  return others.map(({ address, name }, i) => ({
+    address: address as Address,
+    name,
+    voted: Number((found[2 * i] as bigint | undefined) ?? 0n),
+    votes: found[2 * i + 1] as bigint | undefined,
+  }));
+}
 
 // Each check is named by the id of its message on the page.
 export async function check(): Promise<string[]> {

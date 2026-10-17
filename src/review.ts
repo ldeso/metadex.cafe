@@ -173,6 +173,9 @@ async function proposeAll(state: Review, propose: NonNullable<Wallet["propose"]>
   await proposing;
   state.submitted = state.finished = true;
   tell(state, "Proposed. The Safe's owners sign it in Safe{Wallet}; the accounts here change once it executes.");
+  if (state !== current) return;
+  doneBox.replaceChildren(clone("proposed"));
+  doneBox.hidden = false;
 }
 
 async function sendNext(state: Review): Promise<void> {
@@ -232,6 +235,18 @@ next.addEventListener("click", () => current && turn(current.page + 1));
 back.addEventListener("click", () => {
   if (current && !current.sending && !current.submitted && current.page > 0) turn(current.page - 1);
   else close();
+});
+
+// A link to a section of the page closes the review, so that the section shows; Back then returns to the accounts as
+// they were. A click that opens it elsewhere, as in a new tab, leaves the review alone. While the wallet is asked, or
+// between transactions, closing would stop the rest, so the section opens in a new tab instead.
+dialog.addEventListener("click", (event) => {
+  const link = (event.target as Element).closest<HTMLAnchorElement>('a[href^="#"]');
+  if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  if (current && (current.sending || (current.submitted && !current.finished))) {
+    event.preventDefault();
+    open(link.href, "_blank", "noopener");
+  } else close();
 });
 
 dialog.addEventListener("close", () => {

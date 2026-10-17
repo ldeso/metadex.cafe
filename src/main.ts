@@ -3,7 +3,24 @@ import "./views.ts";
 import { same } from "./chain.ts";
 import { CHAIN_ID } from "./config.ts";
 import { clone, fill, fillAddress, fillPlural, fillTime, show } from "./dom.ts";
-import { WEEK, bps, count, date, earningPower, list, share, short, units, until, weekStart, when } from "./format.ts";
+import { readAllEarnings, readEarnings, sharesOf, valueOf, type Earnings } from "./earnings.ts";
+import {
+  WEEK,
+  bps,
+  compact,
+  count,
+  date,
+  earningPower,
+  fraction,
+  list,
+  share,
+  short,
+  units,
+  until,
+  usd,
+  weekStart,
+  when,
+} from "./format.ts";
 import {
   LockType,
   automation,
@@ -15,10 +32,12 @@ import {
   join,
   leave,
   readAccounts,
+  readAutomations,
   readRelay,
   release,
   status,
   type Account,
+  type Automation,
   type Group,
   type Holdings,
   type Relay,
@@ -58,6 +77,17 @@ let clicks = 0;
 // Base's time less the device's, from the newest block read: a read that started earlier may answer from an older one.
 let drift = 0;
 let newest = 0;
+// What the automation's votes earned in the last epoch that has ended, and when the page last tried to read it.
+let earned: { found: Earnings; value: Value } | undefined;
+let earningsTried = 0;
+let earningsRead: Promise<void> | undefined;
+// Each shown account's share of the automation's votes in that epoch.
+let shares: { holdings: Holdings; start: number; of: Map<bigint, number> } | undefined;
+// The epoch the comparison with all of Hydrex is read for, and whether its table is on the screen.
+let compared: number | undefined;
+let onScreen = false;
+
+type Value = ReturnType<typeof valueOf>;
 
 const now = () => Math.floor(Date.now() / 1000) + drift;
 
@@ -75,7 +105,7 @@ function failed(error: unknown): void {
 function showRelay(found: Relay): void {
   relay = found;
   sawBlock(found.time);
-  const { epochStart, tonnes, retireBps, feeBps, votes, entity } = found;
+  const { epochStart, tonnes, retireBps, feeBps, votes, entity, beneficiary, beneficiaryAddress, message } = found;
   fill(document, {
     tonnes: units(tonnes),
     retired: bps(retireBps),
@@ -84,7 +114,10 @@ function showRelay(found: Relay): void {
     fee: bps(feeBps),
     power: earningPower(votes),
     entity,
+    beneficiary: beneficiary || "No name",
+    message,
   });
+  fillAddress(document, "beneficiary-address", beneficiaryAddress);
   fillTime(document, "week-start", epochStart);
   fillTime(document, "week-end", epochStart + WEEK);
   fillTime(document, "week-end-when", epochStart + WEEK, when);
@@ -112,11 +145,140 @@ const readRelayAgain = (): Promise<void> =>
     .then(showRelay)
     .finally(() => (relayRead = undefined)));
 
-// Reads again what is missing or from an epoch that has ended: the page moves on by itself.
+// Reads again what is missing or from an epoch that has ended: the page moves on by itself. What the votes earned is
+// tried at most every five minutes: until Hydrex's own epoch has moved on, each try is one read.
 function catchUp(): void {
   const epoch = weekStart(now());
   if (shown && !reading && epoch > shown.epochStart) loadAccounts(true);
   if (!relay || epoch > relay.epochStart) readRelayAgain().catch(console.error);
+  const stale = !earned || earned.found.start < epoch - WEEK;
+  if (stale && Date.now() - earningsTried > 300_000) loadEarnings();
+}
+
+function loadEarnings(): void {
+  if (earningsRead) return;
+  earningsTried = Date.now();
+  earningsRead = readEarnings(earned?.found.start)
+    .then(
+      (found) => found && showEarnings(found),
+      (error) => {
+        // Like the other automations' votes, it only adds to the page: it says so where the figures go, and keeps those
+        // of an earlier epoch.
+        console.error(error);
+        show(".earnings-failed", !earned);
+        show(".earnings-read", !!earned);
+      },
+    )
+    .finally(() => (earningsRead = undefined));
+}
+
+const earningsTable = document.querySelector<HTMLElement>("#last-epoch .earnings")!;
+const comparison = {
+  status: document.querySelector<HTMLElement>("#last-epoch .all-status")!,
+  failed: document.querySelector<HTMLElement>("#last-epoch .all-failed")!,
+  versus: document.querySelector<HTMLElement>("#last-epoch .versus")!,
+};
+// Dollars per 1,000 votes, from votes with 18 decimals.
+const perThousand = (value: number, votes: bigint): number => (votes > 0n ? value / (Number(votes) / 1e21) : 0);
+
+function showColumn(column: "ours" | "all", { votes, pools }: Earnings, value: Value | undefined): void {
+  const per = value && perThousand(value.usd, votes);
+  const texts = {
+    votes: `${compact(votes)}, or ${compact((votes * 13n) / 10n)} Earning Power`,
+    pools: count(pools.length, "pool", "pools"),
+    earned: value ? usd(value.usd) : "…",
+    fees: value ? usd(value.fees) : "…",
+    incentives: value ? usd(value.incentives) : "…",
+    "per-votes": per === undefined ? "…" : usd(per),
+    "per-power": per === undefined ? "…" : usd(per / 1.3),
+  };
+  for (const [name, text] of Object.entries(texts)) {
+    for (const cell of earningsTable.querySelectorAll(`.${column}.${name}`)) cell.textContent = text;
+  }
+}
+
+function showPools({ pools, votes }: Earnings, value: Value): void {
+  const poolRows = pools.map((pool) => {
+    const row = clone("earned-pool");
+    fillAddress(row, "pool", pool.address, pool.name);
+    const earnedThere = value.byPool.get(pool.address.toLowerCase()) ?? 0;
+    fill(row, { share: fraction(Number(pool.votes) / Number(votes)), usd: usd(earnedThere) });
+    return row;
+  });
+  document.querySelector("#last-epoch .earned-pools tbody")!.replaceChildren(...poolRows);
+}
+
+function showEarnings(found: Earnings): void {
+  const value = valueOf(found);
+  earned = { found, value };
+  show(".earnings-failed", false);
+  show(".earnings-read");
+  const per = perThousand(value.usd, found.votes);
+  fillTime(document, "last-start", found.start);
+  fillTime(document, "last-end", found.start + WEEK);
+  fill(document, { "last-per-votes": usd(per), "last-per-power": usd(per / 1.3) });
+  showColumn("ours", found, value);
+  showPools(found, value);
+  comparison.status.textContent = comparison.status.dataset.text ?? "";
+  comparison.status.hidden = false;
+  comparison.failed.hidden = comparison.versus.hidden = true;
+  for (const cell of earningsTable.querySelectorAll(".all")) cell.textContent = "…";
+  if (onScreen) compare();
+  loadShares();
+}
+
+// All of Hydrex is ten times the reads, so it waits until its table is on the screen. Both columns then take the same
+// prices, so that they compare on the same footing.
+function compare(): void {
+  const mine = earned?.found;
+  if (!mine || compared === mine.start) return;
+  compared = mine.start;
+  comparison.failed.hidden = true;
+  comparison.status.hidden = false;
+  comparison.status.textContent = "Reading every pool's rewards…";
+  readAllEarnings(mine.start).then(
+    (all) => {
+      if (earned?.found !== mine) return;
+      const ours = valueOf({ ...mine, prices: all.prices });
+      const average = valueOf(all);
+      showColumn("ours", mine, ours);
+      showColumn("all", all, average);
+      const ratio = perThousand(ours.usd, mine.votes) / perThousand(average.usd, all.votes);
+      comparison.versus.textContent =
+        Math.abs(ratio - 1) < 0.005
+          ? "Last epoch, a vote with Carbon Impact earned about as much as the average vote on Hydrex, at the same prices."
+          : `Last epoch, a vote with Carbon Impact earned ${fraction(Math.abs(ratio - 1))} ${ratio > 1 ? "more" : "less"} than the average vote on Hydrex, at the same prices. Tokens left unpriced count for nothing in either.`;
+      comparison.status.hidden = true;
+      comparison.versus.hidden = !Number.isFinite(ratio);
+    },
+    (error) => {
+      console.error(error);
+      if (earned?.found !== mine) return;
+      compared = undefined;
+      comparison.status.hidden = true;
+      comparison.failed.hidden = false;
+    },
+  );
+}
+
+// What each account's votes earned with Carbon Impact last epoch: its share of the automation's votes.
+async function loadShares(): Promise<void> {
+  const [holdings, found] = [shown, earned?.found];
+  if (!holdings || !found || (shares?.holdings === holdings && shares.start === found.start)) return;
+  const ids = holdings.accounts.filter(({ amount }) => amount > 0n).map(({ id }) => id);
+  const of = await sharesOf(ids, found.start, found.votes).catch((error) => void console.error(error));
+  if (!of || shown !== holdings || earned?.found !== found) return;
+  shares = { holdings, start: found.start, of };
+  showAccounts(true);
+}
+
+function showAutomations(found: Automation[]): void {
+  for (const row of document.querySelectorAll<HTMLElement>("tr[data-automation]")) {
+    const automation = found.find(({ address }) => same(address, row.dataset.automation ?? ""));
+    if (!automation) continue;
+    if (automation.voted) fillTime(row, "voted", automation.voted);
+    if (automation.votes !== undefined) fill(row, { "still-in": earningPower(automation.votes) });
+  }
 }
 
 async function showChecks(): Promise<void> {
@@ -152,6 +314,14 @@ function accountItem(account: Account, state: Status, pickable: boolean): Docume
   if ("name" in state) fill(line, { automation: state.name });
   if ("to" in state) fillAddress(line, "address", state.to);
   item.querySelector(".status")!.replaceWith(line);
+  // Shares of the epoch shown, for the accounts shown: a share from another epoch, or for another read of the accounts,
+  // would be multiplied by the wrong total.
+  const part =
+    shares && shares.holdings === shown && shares.start === earned?.found.start ? shares.of.get(account.id) : undefined;
+  if (part !== undefined && earned) {
+    fill(item, { "earned-usd": usd(part * earned.value.usd) });
+    show(".earned", true, item);
+  }
   if (pickable) {
     const box = item.querySelector<HTMLInputElement>(".pick")!;
     // A hidden box stays disabled, so that a click on its row's label cannot tick it.
@@ -237,6 +407,7 @@ async function loadAccounts(quietly = false): Promise<void> {
     shown = found;
     showAccounts();
     catchUp();
+    loadShares();
   } catch (error) {
     if (read === reads) failed(error);
   } finally {
@@ -442,5 +613,13 @@ safeWallet()
   .catch(console.error);
 readRelayAgain().catch(failed);
 showChecks().catch(failed);
+comparison.status.dataset.text = comparison.status.textContent ?? "";
+loadEarnings();
+readAutomations().then(showAutomations, console.error);
+new IntersectionObserver((entries) => {
+  onScreen = entries.some(({ isIntersecting }) => isIntersecting);
+  if (onScreen) compare();
+}).observe(earningsTable);
+document.querySelector("#last-epoch .compare-again")!.addEventListener("click", compare);
 setInterval(() => showChecks().catch(console.error), 3_600_000);
 setInterval(tick, 30_000);

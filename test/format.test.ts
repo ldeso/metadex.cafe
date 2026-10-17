@@ -4,14 +4,17 @@ import {
   WEEK,
   bps,
   clean,
+  compact,
   count,
   date,
   day,
   earningPower,
+  fraction,
   share,
   short,
   units,
   until,
+  usd,
   weekStart,
   when,
 } from "../src/format.ts";
@@ -76,4 +79,19 @@ test("counts, with plurals", () => {
   assert.equal(count(1, "account", "accounts"), "1 account");
   assert.equal(count(27, "account", "accounts"), "27 accounts");
   assert.equal(count(1234, "empty account", "empty accounts"), "1,234 empty accounts");
+});
+
+test("dollars are approximate, with no break after the sign", () => {
+  assert.equal(usd(692.85), "≈\u00a0$693");
+  assert.equal(usd(0.7724), "≈\u00a0$0.77");
+  assert.equal(usd(111_078.6), "≈\u00a0$111,079");
+  assert.equal(usd(0.001), "<\u00a0$0.01");
+  assert.equal(usd(0), "$0");
+});
+
+test("large numbers of votes, and shares", () => {
+  assert.equal(compact(897_042_934_693_272_892_269_268n), "897K");
+  assert.equal(compact(1_166_155n * 10n ** 18n), "1.17M");
+  assert.equal(compact(168_381_324n * 10n ** 18n), "168M");
+  assert.equal(fraction(0.1667), "16.7%");
 });

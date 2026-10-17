@@ -15,3 +15,23 @@ export const APPROVAL_LOGIC: Address = "0x4B0BC0889EB524Dbae36d409fF733851E9B4f6
 export const APPROVAL_LOGIC_CODE_HASH: Hex = "0xd1fab3adcd045439b72359a675665cb9f9267b32aebb140df865fc723681a930";
 export const VOTER: Address = "0xc69E3eF39E3fFBcE2A1c570f8d3ADF76909ef17b";
 export const ACCOUNT_NAMES: Address = "0x998cf40a742460b4eBbFB569A0D23eA91976c0d3";
+// For what the votes earned: Hydrex's two pool factories, and the tokens its pools are priced against, with the
+// Chainlink feeds that price them.
+export const ALGEBRA_FACTORY: Address = "0x36077D39cdC65E1e3FB65810430E5b2c4D5fA29E";
+export const PAIR_FACTORY: Address = "0xC47F17c4fd96F50eFD2A2448ceDe5C185c084bf0";
+export type Anchor = { address: Address; decimals: number; symbol: string; feed?: Address };
+export const ANCHORS: Anchor[] = [
+  { address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, symbol: "USDC" },
+  {
+    address: "0x4200000000000000000000000000000000000006",
+    decimals: 18,
+    symbol: "WETH",
+    feed: "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70", // ETH / USD
+  },
+  {
+    address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf",
+    decimals: 8,
+    symbol: "cbBTC",
+    feed: "0x64c911996D3c6aC71f9b455B1E8E7266BcbD848F", // BTC / USD
+  },
+];

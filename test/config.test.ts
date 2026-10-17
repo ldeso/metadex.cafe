@@ -4,12 +4,15 @@ import { test } from "node:test";
 import { getAddress } from "viem";
 import {
   ACCOUNT_NAMES,
+  ALGEBRA_FACTORY,
+  ANCHORS,
   APPROVAL_LOGIC,
   APPROVAL_LOGIC_CODE_HASH,
   CONDUIT,
   CONDUIT_CODE_HASH,
   KVCM,
   MULTICALL3,
+  PAIR_FACTORY,
   RPCS,
   VOTER,
   VOTING_ESCROW,
@@ -23,7 +26,12 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 
 test("addresses are checksummed, and code hashes are 32 bytes", () => {
   const contracts = [MULTICALL3, CONDUIT, KVCM, VOTING_ESCROW, VOTING_ESCROW_IMPLEMENTATION, APPROVAL_LOGIC, VOTER];
-  const addresses = [...contracts, ACCOUNT_NAMES, ...conduits.map(({ address }) => address)];
+  const prices = [
+    ALGEBRA_FACTORY,
+    PAIR_FACTORY,
+    ...ANCHORS.flatMap(({ address, feed }) => (feed ? [address, feed] : [address])),
+  ];
+  const addresses = [...contracts, ACCOUNT_NAMES, ...prices, ...conduits.map(({ address }) => address)];
   for (const address of addresses) assert.equal(getAddress(address), address);
   for (const hash of [CONDUIT_CODE_HASH, VOTING_ESCROW_IMPLEMENTATION_CODE_HASH, APPROVAL_LOGIC_CODE_HASH]) {
     assert.match(hash, /^0x[0-9a-f]{64}$/);
@@ -62,4 +70,20 @@ test("every address within the page has a target, and ids are unique", () => {
   assert.deepEqual(ids, [...new Set(ids)]);
   for (const [, id] of html.matchAll(/href="#([^"]+)"/g)) assert.ok(ids.includes(id!), `#${id} has no target`);
   for (const view of html.match(/<[^>]+class="view"[^>]*>/g) ?? []) assert.match(view, /data-title="[^"]+"/);
+});
+
+test("How it works lists each of its sections, and every other automation of Hydrex's", () => {
+  const html = read("index.html");
+  const view = html.slice(html.indexOf('<div id="how-it-works"'));
+  const sections = [...view.matchAll(/<section id="([^"]+)"/g)].map(([, id]) => id);
+  const contents = /<nav class="contents"[\s\S]*?<\/nav>/.exec(view)?.[0] ?? "";
+  assert.deepEqual(
+    [...contents.matchAll(/href="#([^"]+)"/g)].map(([, id]) => id),
+    sections,
+  );
+  const rows = [...view.matchAll(/data-automation="([^"]+)"/g)].map(([, address]) => address);
+  assert.deepEqual(
+    rows,
+    conduits.filter(({ address }) => address !== CONDUIT).map(({ address }) => address),
+  );
 });
