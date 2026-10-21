@@ -1,11 +1,11 @@
-import { CARBON_IMPACT, type Automation, type Kind } from "./config.ts";
-import { clone, fill, fillAddress, fillTime, show } from "./dom.ts";
+import { AUTOMATIONS, byKind, type Automation, type Kind } from "./config.ts";
+import { clone, fill, fillAddress, show } from "./dom.ts";
 import { readAllEarnings, readEarnings, sharesOf, valueOf, type Earnings } from "./earnings.ts";
 import { WEEK, compact, count, fraction, toEarningPower, usd } from "./format.ts";
 import type { Holdings } from "./hydrex.ts";
 
-// What the automations' votes earned last epoch: Carbon Impact's figure on Home, each account's part of its
-// automation's in the App, and the section "How the votes did last epoch".
+// What the automations' votes earned last epoch: each automation's line on the menu and on its page, each account's
+// part of its automation's, and, on each automation's page, the fold that sets it against all of Hydrex.
 
 type Value = ReturnType<typeof valueOf>;
 type Read = { found: Earnings; value: Value };
@@ -19,20 +19,18 @@ const failedKinds = new Set<Kind>();
 // not be read, or are as they were.
 type Outcome = "read" | "failed" | "same";
 const listeners: ((kind: Kind, outcome: Outcome) => void)[] = [];
-let comparedEpoch: number | undefined;
-let onScreen = false;
-// Each account's share of its automation's votes, kept with the accounts it was read for.
-const shares = new WeakMap<Holdings, Map<Kind, { start: number; of: Map<bigint, number> }>>();
+// All of Hydrex, for each epoch, read once for every automation's fold; and the epoch each fold compares.
+const allOf = new Map<number, Promise<Earnings>>();
+const compared = new Map<Kind, number>();
+// Each account's share of each automation's votes in the epoch from `start`, by account number, whoever holds it:
+// undefined for an account not in it. `asked` holds the accounts whose shares are read or being read.
+type Shares = { start: number; of: Map<bigint, number | undefined>; asked: Set<bigint> };
+const shares = new Map<Kind, Shares>();
 
-const carbonImpact = (): Read | undefined => earned.get(CARBON_IMPACT.kind);
-
-const table = document.querySelector<HTMLElement>("#last-epoch .earnings")!;
-const comparison = {
-  status: document.querySelector<HTMLElement>("#last-epoch .all-status")!,
-  failed: document.querySelector<HTMLElement>("#last-epoch .all-failed")!,
-  versus: document.querySelector<HTMLElement>("#last-epoch .versus")!,
-};
-const waiting = comparison.status.textContent ?? "";
+// Each automation's fold "Against all of Hydrex", on its page.
+const foldOf = ({ kind }: Automation): HTMLDetailsElement =>
+  document.querySelector<HTMLDetailsElement>(`.view[data-kind="${kind}"] [data-section="record"]`)!;
+const part = (fold: HTMLElement, name: string): HTMLElement => fold.querySelector<HTMLElement>(`.${name}`)!;
 
 export const earningsDue = (epoch: number, automations: Automation[]): boolean =>
   automations.some(
@@ -92,19 +90,25 @@ export async function lastEarnings(automation: Automation, start = 0): Promise<E
   return found;
 }
 
-// Resolves to true once the accounts' shares of each automation's votes in the epoch shown are read.
-// Overlapping calls for the same accounts share one map, each adding its automations' shares.
+// Resolves to true once some of the accounts' shares of each automation's votes in the epoch shown are newly read.
+// A share is read once: overlapping calls read each account only once.
 export async function loadShares(holdings: Holdings, automations: Automation[]): Promise<boolean> {
-  const known = shares.get(holdings) ?? new Map();
-  shares.set(holdings, known);
   const ids = holdings.accounts.filter(({ amount }) => amount > 0n).map(({ id }) => id);
   const read = await Promise.all(
     automations.map(async ({ kind, address }) => {
       const found = earned.get(kind)?.found;
-      if (!found || !found.votes || known.get(kind)?.start === found.start) return false;
-      const of = await sharesOf(ids, found.start, found.votes, address).catch((error) => void console.error(error));
-      if (!of || earned.get(kind)?.found !== found) return false;
-      known.set(kind, { start: found.start, of });
+      if (!found || !found.votes) return false;
+      if (shares.get(kind)?.start !== found.start)
+        shares.set(kind, { start: found.start, of: new Map(), asked: new Set() });
+      const known = shares.get(kind)!;
+      const missing = ids.filter((id) => !known.asked.has(id));
+      if (!missing.length) return false;
+      for (const id of missing) known.asked.add(id);
+      const of = await sharesOf(missing, found.start, found.votes, address).catch((error) => void console.error(error));
+      // A failed read is tried again at the next call.
+      if (!of) for (const id of missing) known.asked.delete(id);
+      if (!of || shares.get(kind) !== known) return false;
+      for (const id of missing) known.of.set(id, of.get(id));
       return true;
     }),
   );
@@ -112,8 +116,8 @@ export async function loadShares(holdings: Holdings, automations: Automation[]):
 }
 
 // What the account's votes earned in the epoch shown, in dollars, if it was in one of the automations then.
-export function earnedByAccount(holdings: Holdings, id: bigint): number | undefined {
-  for (const [kind, { start, of }] of shares.get(holdings) ?? []) {
+export function earnedByAccount(id: bigint): number | undefined {
+  for (const [kind, { start, of }] of shares) {
     const read = earned.get(kind);
     const part = of.get(id);
     if (read && start === read.found.start && part !== undefined) return part * read.value.usd;
@@ -135,7 +139,7 @@ export function perThousandOf(automation: Automation): number | null | undefined
 const perThousand = (value: number, votes: bigint): number =>
   votes > 0n ? value / (Number(toEarningPower(votes)) / 1e21) : 0;
 
-function showColumn(column: "ours" | "all", { votes, pools }: Earnings, value: Value | undefined): void {
+function showColumn(table: HTMLElement, column: "ours" | "all", { votes, pools }: Earnings, value?: Value): void {
   const per = value && perThousand(value.usd, votes);
   fill(table, {
     [`${column}.earning-power`]: compact(toEarningPower(votes)),
@@ -147,7 +151,7 @@ function showColumn(column: "ours" | "all", { votes, pools }: Earnings, value: V
   });
 }
 
-function showPools({ pools, votes }: Earnings, value: Value): void {
+function showPools(fold: HTMLElement, { pools, votes }: Earnings, value: Value): void {
   const rows = pools.map((pool) => {
     const row = clone("earned-pool");
     fillAddress(row, "pool", pool.address, pool.name);
@@ -155,71 +159,94 @@ function showPools({ pools, votes }: Earnings, value: Value): void {
     fill(row, { share: fraction(Number(pool.votes) / Number(votes)), usd: usd(earnedThere) });
     return row;
   });
-  document.querySelector("#last-epoch .earned-pools tbody")!.replaceChildren(...rows);
+  fold.querySelector(".earned-pools tbody")!.replaceChildren(...rows);
 }
 
-function showEarnings(found: Earnings, value: Value): void {
-  show(".earnings-failed", false);
-  show(".earnings-read");
-  fillTime(document, "last-start", found.start);
-  fillTime(document, "last-end", found.start + WEEK);
-  fill(document, { "last-per-power": usd(perThousand(value.usd, found.votes)) });
-  showColumn("ours", found, value);
-  showPools(found, value);
-  comparison.status.textContent = waiting;
-  comparison.status.hidden = false;
-  comparison.failed.hidden = comparison.versus.hidden = true;
+function showEarnings(automation: Automation, { found, value }: Read): void {
+  const fold = foldOf(automation);
+  const table = part(fold, "earnings");
+  part(fold, "record-waiting").hidden = true;
+  show(".record-none", !found.votes, fold);
+  show(".record-found", !!found.votes, fold);
+  showColumn(table, "ours", found, value);
+  showPools(fold, found, value);
+  part(fold, "all-status").hidden = false;
+  part(fold, "all-status").textContent = "Reading every pool's rewards…";
+  part(fold, "all-failed").hidden = part(fold, "versus").hidden = true;
   fill(table, { all: "…" });
-  if (onScreen) compare();
+  compared.delete(automation.kind);
+  if (fold.open) compare(automation);
 }
 
-// All of Hydrex takes ten times the reads, so it waits until its table is on the screen. Both columns then use the
-// same prices, so that they compare fairly.
-function compare(): void {
-  const mine = carbonImpact()?.found;
-  if (!mine || comparedEpoch === mine.start) return;
-  comparedEpoch = mine.start;
-  comparison.failed.hidden = true;
-  comparison.status.hidden = false;
-  comparison.status.textContent = "Reading every pool's rewards…";
-  readAllEarnings(mine.start).then(
+function readAll(start: number): Promise<Earnings> {
+  let found = allOf.get(start);
+  if (!found) {
+    found = readAllEarnings(start);
+    allOf.set(start, found);
+    found.catch(() => allOf.delete(start));
+  }
+  return found;
+}
+
+// All of Hydrex takes ten times the reads, so it waits until the fold opens. Both columns then use the same prices,
+// so that they compare fairly.
+function compare(automation: Automation): void {
+  const { kind, name } = automation;
+  const mine = earned.get(kind)?.found;
+  if (!mine || !mine.votes || compared.get(kind) === mine.start) return;
+  compared.set(kind, mine.start);
+  const fold = foldOf(automation);
+  const table = part(fold, "earnings");
+  const [status, failed, versus] = ["all-status", "all-failed", "versus"].map((each) => part(fold, each)) as [
+    HTMLElement,
+    HTMLElement,
+    HTMLElement,
+  ];
+  failed.hidden = true;
+  status.hidden = false;
+  readAll(mine.start).then(
     (all) => {
-      if (carbonImpact()?.found !== mine) return;
+      if (earned.get(kind)?.found !== mine) return;
       const ours = valueOf({ ...mine, prices: all.prices });
       const average = valueOf(all);
-      showColumn("ours", mine, ours);
-      showColumn("all", all, average);
+      showColumn(table, "ours", mine, ours);
+      showColumn(table, "all", all, average);
       const ratio = perThousand(ours.usd, mine.votes) / perThousand(average.usd, all.votes);
-      comparison.versus.textContent =
+      versus.textContent =
         Math.abs(ratio - 1) < 0.005
-          ? "Last epoch, Carbon Impact earned about as much per 1,000 Earning Power as the average on Hydrex, at the same prices."
-          : `Last epoch, Carbon Impact earned ${fraction(Math.abs(ratio - 1))} ${ratio > 1 ? "more" : "less"} per 1,000 Earning Power than the average on Hydrex, at the same prices. Tokens left unpriced count for nothing in either.`;
-      comparison.status.hidden = true;
-      comparison.versus.hidden = !Number.isFinite(ratio);
+          ? `Last epoch, ${name} earned about as much per 1,000 Earning Power as the average on Hydrex, at the same prices.`
+          : `Last epoch, ${name} earned ${fraction(Math.abs(ratio - 1))} ${ratio > 1 ? "more" : "less"} per 1,000 Earning Power than the average on Hydrex, at the same prices. Tokens left unpriced count for nothing in either.`;
+      status.hidden = true;
+      versus.hidden = !Number.isFinite(ratio);
     },
     (error) => {
       console.error(error);
-      if (carbonImpact()?.found !== mine) return;
-      comparedEpoch = undefined;
-      comparison.status.hidden = true;
-      comparison.failed.hidden = false;
+      if (earned.get(kind)?.found !== mine) return;
+      compared.delete(kind);
+      status.hidden = true;
+      failed.hidden = false;
     },
   );
 }
 
-// Carbon Impact's figures show in Home's numbers and in the section on how the votes did.
+// Each automation's figures show in its fold, and the fold compares once it opens. Until they are read, it says so.
 onEarnings((kind, outcome) => {
-  if (kind !== CARBON_IMPACT.kind) return;
-  const read = carbonImpact();
-  if (outcome === "read") showEarnings(read!.found, read!.value);
-  if (outcome === "failed") {
-    show(".earnings-failed", !read);
-    show(".earnings-read", !!read);
+  const automation = byKind(kind)!;
+  const read = earned.get(kind);
+  if (outcome === "read" && read) showEarnings(automation, read);
+  if (outcome === "failed" && !read) {
+    part(foldOf(automation), "record-waiting").textContent =
+      "Last epoch's figures could not be read from Base. The page tries again in a few minutes.";
   }
 });
 
-new IntersectionObserver((entries) => {
-  onScreen = entries.some(({ isIntersecting }) => isIntersecting);
-  if (onScreen) compare();
-}).observe(table);
-document.querySelector("#last-epoch .compare-again")!.addEventListener("click", compare);
+// An automation not on Base has no figures to read.
+export function showAbsent(automation: Automation): void {
+  part(foldOf(automation), "record-waiting").textContent = `No record yet: ${automation.name} is not on Base yet.`;
+}
+
+for (const automation of AUTOMATIONS) {
+  const fold = foldOf(automation);
+  fold.addEventListener("toggle", () => fold.open && compare(automation));
+  fold.querySelector(".compare-again")!.addEventListener("click", () => compare(automation));
+}

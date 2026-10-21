@@ -17,6 +17,8 @@ type Review = {
   // Shown once every transaction is included.
   outcome?: DocumentFragment | undefined;
   steps: Step[];
+  // Where the product's page explains the calls, for the slips and the co-signers.
+  checkHref: string;
   connection: Connection;
   hooks: Hooks;
   done: Hex[];
@@ -43,7 +45,7 @@ let current: Review | undefined;
 
 // A call as the wallet will show it. In a Safe, the Safe transaction's fields and calldata follow, for co-signers to
 // compare with Safe{Wallet}.
-function slip(step: Step, i: number, n: number, safe: boolean): DocumentFragment {
+function slip(step: Step, i: number, n: number, safe: boolean, checkHref: string): DocumentFragment {
   const item = clone("step");
   const which = n > 1 ? ` · ${safe ? "call " : ""}${i + 1} of ${n}` : "";
   fill(item, {
@@ -59,6 +61,7 @@ function slip(step: Step, i: number, n: number, safe: boolean): DocumentFragment
   showHex(item.querySelector(".to")!, step.to);
   showHex(item.querySelector(".conduit")!, step.conduit);
   showHex(item.querySelector(".data")!, step.data);
+  item.querySelector(".check-calls")!.setAttribute("href", checkHref);
   show(".raw, .slip-note", safe, item);
   show(".operation", safe && n === 1, item);
   return item;
@@ -68,6 +71,7 @@ export function openReview(
   name: string,
   pages: ReviewPage[],
   steps: Step[],
+  checkHref: string,
   connection: Connection,
   hooks: Hooks,
   outcome?: DocumentFragment,
@@ -78,6 +82,7 @@ export function openReview(
     page: 0,
     outcome,
     steps,
+    checkHref,
     connection,
     hooks,
     done: [],
@@ -97,7 +102,7 @@ export function openReview(
   doneBox.replaceChildren();
   doneBox.hidden = true;
   const safe = !!connection.wallet.propose;
-  stepList.replaceChildren(...steps.map((step, i) => slip(step, i, n, safe)));
+  stepList.replaceChildren(...steps.map((step, i) => slip(step, i, n, safe, checkHref)));
   how.textContent = safe
     ? n === 1
       ? "One Safe transaction. Safe{Wallet} sets its nonce; its other fields are these:"
@@ -171,7 +176,10 @@ async function proposeAll(state: Review, propose: NonNullable<Wallet["propose"]>
   state.submitted = state.finished = true;
   say(state, "Proposed. The Safe's owners sign it in Safe{Wallet}; the accounts here change once it executes.");
   if (state !== current) return;
-  doneBox.replaceChildren(clone("proposed"));
+  const proposed = clone("proposed");
+  proposed.querySelector(".co-signers")!.setAttribute("href", state.checkHref);
+  proposed.querySelector(".co-signers-address")!.textContent = `https://metadex.cafe/${state.checkHref}`;
+  doneBox.replaceChildren(proposed);
   doneBox.hidden = false;
 }
 

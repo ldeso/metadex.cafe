@@ -12,7 +12,7 @@
     <title>metaDEX Café</title>
     <meta
       name="description"
-      content="Let Carbon Impact vote with your Hydrex accounts every week, retire a share of the rewards as carbon credits and pay you the rest. Your HYDX never leaves your wallet, and you can leave at any time."
+      content="Automations that vote with your Hydrex accounts on Base. Your account stays in your wallet, and you can leave at any time."
     />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="shortcut icon" href="favicon.ico" sizes="32x32" />
@@ -24,7 +24,6 @@
     <header class="site">
       <a class="name" href="#">metaDEX Café</a>
       <nav aria-label="Site">
-        <a class="how" href="#how-it-works">How it works</a>
         <a class="to-app button" href="#app"
           ><span class="open">Open the app</span
           ><span class="wallet-state" hidden
@@ -35,634 +34,241 @@
     </header>
 
     <main>
+      <noscript><p class="notice">This page needs its script. Check that JavaScript is on, then reload.</p></noscript>
       <p id="error" class="notice" role="alert" hidden>
         <strong>Reading Base failed.</strong> Check the connection, then
         <button type="button" class="again secondary">Try again</button>
       </p>
 
-      <!-- Each view shows when it holds the hash's target, and Home shows otherwise. See style.css. -->
-      <div id="home" class="view" data-title="metaDEX Café">
-        <section class="promise">
-          <h1 tabindex="-1">Your Hydrex votes, retiring carbon credits and paying you</h1>
-          <p>
-            Carbon Impact is an automation for Hydrex accounts. It votes with your accounts every week, retires a share
-            of the rewards as carbon credits and pays you the rest. Your HYDX never leaves your wallet.
-          </p>
-          <p class="buttons"><a class="button" href="#app">Open the app</a></p>
-          <ul class="states">
-            <li>
-              <span class="shape running impact-shape" aria-hidden="true"></span>
-              <span
-                ><b class="impact-state">Running</b><br /><span class="small"
-                  >Carbon Impact: voted <time class="impact-voted">…</time></span
-                ></span
-              >
-            </li>
-            <li>
-              <span class="shape stopped" aria-hidden="true"></span>
-              <span
-                ><b>Stopped</b><br /><span class="small"
-                  ><a href="#if-your-automation-stopped">Hydrex's other automations</a>, such as USDC: last voted Wed 9
-                  Sep; they earn nothing</span
-                ></span
-              >
-            </li>
-          </ul>
-        </section>
-
-        <section class="numbers" aria-labelledby="numbers-title">
-          <h2 id="numbers-title">Carbon Impact today</h2>
-          <p class="needs-script small">These numbers are read from Base by the page's script, which has not run.</p>
-          <dl>
-            <div>
-              <dt>Retired so far</dt>
-              <dd><span class="tonnes">…</span> tonnes of carbon credits</dd>
-              <dd class="through">
-                <img src="klima-protocol.svg" alt="" width="24" height="24" /> through Klima Protocol
-              </dd>
-            </div>
-            <div>
-              <dt>Of the rewards</dt>
-              <dd><span class="retired-share">…</span> retired, <span class="paid-share">…</span> paid to you</dd>
-            </div>
-            <div>
-              <dt>Its Earning Power</dt>
-              <dd><span class="power">…</span> this epoch</dd>
-            </div>
-            <div>
-              <dt>This epoch ends</dt>
-              <dd><time class="week-end-when">…</time> <span class="countdown"></span></dd>
-            </div>
-            <div>
-              <dt>Last epoch, <time class="last-start">…</time> to <time class="last-end">…</time></dt>
-              <dd>
-                <span class="earnings-read"><span class="last-per-power">…</span> earned per 1,000 Earning Power</span>
-                <span class="earnings-failed" hidden
-                  >Not read from Base yet. The page tries again in a few minutes.</span
-                >
-                <a class="more" href="#last-epoch">How the votes did</a>
-              </dd>
-            </div>
-          </dl>
-        </section>
-
-        <section id="menu" aria-labelledby="menu-title">
-          <h2 id="menu-title">Who votes for your accounts</h2>
-          <p>
-            Whatever you choose, your accounts stay in your wallet, and you can change with one call per account. The
-            figures are read from Base.
-          </p>
-          <div class="menu">
-            <article class="choice" data-choice="carbon-impact">
-              <h3><a href="#carbon-impact">Carbon Impact</a></h3>
-              <p class="small">
-                <span class="shape running impact-shape" aria-hidden="true"></span><b class="impact-state">Running</b> ·
-                voted <time class="impact-voted">…</time>
-              </p>
-              <p>
-                Votes with your accounts every week, retires a share of the rewards as carbon credits, and pays you the
-                rest in kVCM.
-              </p>
-              <dl class="key-facts">
-                <div>
-                  <dt>Takes</dt>
-                  <dd data-fact="taken">
-                    <span class="retired">…</span> retired, and a fee of <span class="fee">…</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Pays you</dt>
-                  <dd data-fact="pays">kVCM</dd>
-                </div>
-                <div>
-                  <dt>Costs you</dt>
-                  <dd>The swaps to kVCM</dd>
-                </div>
-                <div>
-                  <dt>Leaving</dt>
-                  <dd data-fact="leaving">One call, at any time</dd>
-                </div>
-              </dl>
-            </article>
-            <article class="choice" data-choice="automaxi" data-kind="automaxi" hidden>
-              <h3><a href="#automaxi">AutoMaxi</a></h3>
-              <p class="small">
-                <span class="shape idle automaxi-shape" aria-hidden="true"></span><b class="automaxi-state">…</b
-                ><span class="automaxi-voted-line" hidden> · voted <time class="automaxi-voted"></time></span>
-              </p>
-              <p>
-                Votes for the pools it expects to earn the most bribes, and pays you what they earn, in the tokens
-                earned. Nobody controls it.
-              </p>
-              <dl class="key-facts">
-                <div>
-                  <dt>Takes</dt>
-                  <dd data-fact="taken">1% of each claim</dd>
-                </div>
-                <div>
-                  <dt>Pays you</dt>
-                  <dd data-fact="pays">The tokens earned, unswapped</dd>
-                </div>
-                <div>
-                  <dt>Costs you</dt>
-                  <dd>Nothing else</dd>
-                </div>
-                <div>
-                  <dt>Leaving</dt>
-                  <dd data-fact="leaving">One call, at any time</dd>
-                </div>
-              </dl>
-            </article>
-            <article class="choice" data-choice="self">
-              <h3>Vote yourself</h3>
-              <p class="small"><span class="shape idle" aria-hidden="true"></span><b>No automation</b></p>
-              <p>Vote on Hydrex before each Thursday, 00:00 UTC, and claim what your votes earned.</p>
-              <dl class="key-facts">
-                <div>
-                  <dt>Takes</dt>
-                  <dd data-fact="taken most">Nothing</dd>
-                </div>
-                <div>
-                  <dt>Pays you</dt>
-                  <dd data-fact="pays">The tokens of the pools you vote for</dd>
-                </div>
-                <div>
-                  <dt>Costs you</dt>
-                  <dd>Your time each week, and the gas</dd>
-                </div>
-                <div>
-                  <dt>Leaving</dt>
-                  <dd data-fact="leaving">Nothing to leave</dd>
-                </div>
-              </dl>
-            </article>
-          </div>
-          <p>If you only want the most, and have time each week, vote yourself.</p>
-        </section>
-
-        <section id="in-three-steps">
-          <h2>How it works, in three steps</h2>
-          <ol>
-            <li><b>It votes with your accounts every week,</b> just before the epoch ends on Thursday at 00:00 UTC.</li>
-            <li>
-              <b>It claims their rewards</b> right after, and swaps them into kVCM, Klima Protocol's token backed by
-              carbon credits.
-            </li>
-            <li>
-              <b>It retires <span class="retired-share">a share</span> of the kVCM as carbon credits,</b> and sends you
-              the rest.
-            </li>
-          </ol>
-          <p>
-            A join takes effect in two steps: Carbon Impact can claim your account's rewards at once, and votes with it
-            from the next epoch, which starts on Thursday at 00:00 UTC. <a href="#timing">When things happen</a>
-          </p>
-        </section>
-
-        <section id="what-you-give">
-          <h2>What you keep, what you give, what you get</h2>
-          <div class="columns">
-            <div>
-              <h3>You keep</h3>
-              <ul>
-                <li>Your HYDX, in your account</li>
-                <li>Your account, in your wallet</li>
-                <li>The right to leave at any time</li>
-              </ul>
-            </div>
-            <div>
-              <h3>You give</h3>
-              <ul>
-                <li>Part of the rewards: <span class="retired-share">a share</span>, retired as carbon credits</li>
-                <li>Your own vote, while your account is in</li>
-              </ul>
-            </div>
-            <div>
-              <h3>You get</h3>
-              <ul>
-                <li>The rest of the rewards, in kVCM, every week</li>
-                <li>Nothing to do each week</li>
-              </ul>
-            </div>
-          </div>
-          <p>
-            <a href="#carbon">What kVCM is, and what is retired</a> ·
-            <a href="#who-controls-what">Who sets the share</a>
-          </p>
-        </section>
-
-        <section id="compared">
-          <h2>Compared with the other choices</h2>
-          <div class="scroll">
-            <table>
-              <thead>
-                <tr>
-                  <td></td>
-                  <th scope="col">Vote yourself</th>
-                  <th scope="col">Stay in one that stopped</th>
-                  <th scope="col">Carbon Impact</th>
-                  <th scope="col" data-kind="automaxi" hidden>AutoMaxi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Who votes</th>
-                  <td>You, every week</td>
-                  <td>Nobody, since 9 Sep</td>
-                  <td>Carbon Impact, every week</td>
-                  <td data-kind="automaxi" hidden>AutoMaxi, when a vote would earn at least $1 more</td>
-                </tr>
-                <tr>
-                  <th scope="row">You are paid</th>
-                  <td>Fees and incentives, in the tokens of the pools you vote for</td>
-                  <td>Nothing, since 10 Sep</td>
-                  <td>kVCM</td>
-                  <td data-kind="automaxi" hidden>The tokens earned, less 1%</td>
-                </tr>
-                <tr>
-                  <th scope="row">Retired</th>
-                  <td>None</td>
-                  <td>None</td>
-                  <td><span class="retired">…</span> of the rewards</td>
-                  <td data-kind="automaxi" hidden>None</td>
-                </tr>
-                <tr>
-                  <th scope="row">Each week, you</th>
-                  <td>Vote before Thursday, 00:00 UTC, and claim</td>
-                  <td>Do nothing, and earn nothing</td>
-                  <td>Do nothing</td>
-                  <td data-kind="automaxi" hidden>Do nothing</td>
-                </tr>
-                <tr>
-                  <th scope="row">Last epoch, per 1,000 Earning Power</th>
-                  <td>Depends on your pools: see <a href="#last-epoch">the average on Hydrex</a></td>
-                  <td>Nothing</td>
-                  <td>
-                    <span class="last-per-power">…</span> earned, <span class="paid-share">…</span> paid to you in kVCM
-                  </td>
-                  <td data-kind="automaxi" hidden><span class="automaxi-record">…</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p>If you only want the most yield, and have time each week, vote yourself.</p>
-        </section>
-
-        <section id="safe-to-try">
-          <h2>Safe to try</h2>
-          <ul>
-            <li>
-              <b>Nothing is transferred.</b> Joining lets Carbon Impact vote with your accounts and claim their rewards.
-              The accounts and their HYDX stay in your wallet, as Basescan shows.
-              <a href="#your-hydx">What joining allows</a>
-            </li>
-            <li>
-              <b>You can leave at any time,</b> even if this page's checks fail.
-              <a href="#leaving-at-any-time">Leaving</a>
-            </li>
-            <li>
-              <b>Two calls, both shown before your wallet asks.</b> Joining and leaving are the same call to Hydrex's
-              contracts, with true or false. <a href="#for-co-signers">The calls</a>
-            </li>
-            <li>
-              <b>The page checks the automation before it lets you join:</b> its code and settings, and Hydrex's
-              contracts, on Base. <a href="#verify">What the page checks</a>
-            </li>
-            <li>
-              <b>One admin key controls the automation's settings, within limits:</b> the share retired (up to 100%),
-              the tokens it pays out in, the swap routers and your payout address.
-              <a href="#who-controls-what">Who controls what</a>
-            </li>
-          </ul>
-        </section>
-
-        <section id="common-questions">
-          <h2>Questions</h2>
-          <details>
-            <summary>Can I still vote myself?</summary>
-            <p>
-              Not with an account in Carbon Impact: from the epoch after it joins, its votes count for Carbon Impact.
-              Leave, and you vote with it again from the next epoch. Accounts you keep out vote as before.
-              <a href="#timing">When things happen</a>
-            </p>
-          </details>
-          <details>
-            <summary>What happens to rewards I have not claimed?</summary>
-            <p>
-              Carbon Impact can claim them from the moment an account joins, even those your own votes earned, and swaps
-              and retires them like the rest. To keep them as they are,
-              <a href="https://www.hydrex.fi/accounts">claim them on Hydrex</a> before you join.
-              <a href="#unclaimed-rewards">More on unclaimed rewards</a>
-            </p>
-          </details>
-          <details>
-            <summary>What carbon credits, and where can I see them?</summary>
-            <p>
-              Carbon Impact retires them through Klima, in the name "<bdi class="entity" translate="no">Hydrex</bdi>",
-              which is the same for every member. Each retirement is a transaction of
-              <a href="https://basescan.org/address/0xdE91885cF35ac57DF0c4A75c16862127dBe8317c">the automation</a>, on
-              Basescan. <a href="#carbon">The carbon credits</a>
-            </p>
-          </details>
-          <details>
-            <summary>Can a DAO join from a Safe?</summary>
-            <p>
-              Yes. In Safe{Wallet}, add <code translate="no">https://metadex.cafe/</code> as a custom Safe App. The page
-              proposes one Safe transaction for all the accounts, and the Safe's owners sign it in Safe{Wallet}.
-              <a href="#for-co-signers">What to send your co-signers</a>
-            </p>
-          </details>
-          <p><a href="#questions">All questions</a> · <a href="#words">Words</a></p>
-        </section>
-
-        <section>
-          <p class="buttons"><a class="button" href="#app">Open the app</a></p>
-          <p>
-            You need a Hydrex account: <a href="https://www.hydrex.fi/accounts">lock HYDX on Hydrex</a> to make one.
-          </p>
-        </section>
+      <!-- One view for each kind of page. The route in the hash picks the one shown: see src/views.ts. -->
+      <div class="view" data-view="home" data-title="metaDEX Café">
+        <h1 tabindex="-1">Automations that vote with your Hydrex accounts</h1>
+        <p class="lead">Your account stays in your wallet, and you can leave with one call, at any time.</p>
+        <p class="buttons"><a class="button" href="#app">Open the app</a></p>
+        <p class="stopped-line">
+          <span class="shape stopped" aria-hidden="true"></span
+          ><span
+            >Many of Hydrex's automations, such as USDC, stopped voting on Wed 9 Sep. An account still in one earns
+            nothing. <a href="#app">Check your accounts</a></span
+          >
+        </p>
       </div>
 
-      <div id="app" class="view" data-title="Your accounts · metaDEX Café">
+      <div class="view" data-view="app" data-title="Your accounts · metaDEX Café" hidden>
         <h1 tabindex="-1">Your accounts</h1>
-        <p class="needs-script notice">
-          This part of the page needs its script, which has not run. Reload the page, and check that JavaScript is on.
+        <p class="notice checks-failed" data-kind="carbon-impact" role="alert" hidden>
+          <span class="shape failed" aria-hidden="true"></span>Joining Carbon Impact is off: this page's checks of it
+          failed. Leaving works. <a href="#hydrex/carbon-impact/check">Which check failed</a>
         </p>
-        <div id="checks" class="notice" role="alert" hidden>
-          <span class="shape failed" aria-hidden="true"></span
-          ><strong>This page's checks of <span class="checks-which">Carbon Impact</span> failed.</strong> Joining it
-          stays off until the page is updated. Leaving still works.
-          <a href="#verify">What each check guards against</a>
-          <ul>
-            <li id="chain" hidden>The RPC serves another chain than Base.</li>
-            <li id="code" hidden>Carbon Impact runs other code than this page knows.</li>
-            <li id="contracts" hidden>Carbon Impact points to another VotingEscrow or Voter.</li>
-            <li id="token" hidden>Carbon Impact pays in another token than kVCM.</li>
-            <li id="approvals" hidden>What joining Carbon Impact approves has changed.</li>
-            <li id="automaxi-code" hidden>AutoMaxi runs other code than this page knows.</li>
-            <li id="automaxi-contracts" hidden>AutoMaxi points to another VotingEscrow or Voter.</li>
-            <li id="automaxi-approvals" hidden>What joining AutoMaxi approves has changed.</li>
-            <li id="upgrade" hidden>Hydrex upgraded its VotingEscrow.</li>
-            <li id="logic" hidden>Hydrex changed its VotingEscrow's approval logic.</li>
-          </ul>
-        </div>
-
-        <div id="wallets">
-          <p class="buttons"></p>
-          <p>Pick your wallet to see your accounts. It is asked nothing else until you confirm a join or a leave.</p>
-          <p id="connecting" role="status" hidden>
-            Waiting for <bdi class="connecting-wallet" translate="no"></bdi> to answer…
-          </p>
-          <div id="no-wallet" class="notice" role="alert" hidden>
-            <p>No wallet was found in this browser. On a phone, open this page in your wallet app:</p>
-            <p class="buttons">
-              <a class="button secondary" href="https://go.cb-w.com/dapp?cb_url=https%3A%2F%2Fmetadex.cafe%2F%23app"
-                >Coinbase Wallet</a
-              >
-              <a class="button secondary" href="https://link.metamask.io/dapp/metadex.cafe/#app">MetaMask</a>
-            </p>
-            <p>On a computer, install a browser wallet, then reload this page.</p>
-          </div>
-          <p id="wallet-failed" class="notice" role="alert" hidden>
-            <bdi class="failed-wallet" translate="no"></bdi> did not connect. Try again, or use another wallet.
-          </p>
-        </div>
-        <div id="connected" hidden>
-          <p>
-            Connected with <bdi class="wallet" translate="no"></bdi> as <code translate="no"><a class="me"></a></code>.
-          </p>
-          <p id="wrong-chain" class="notice" role="alert" hidden>
-            <span class="to-switch">
-              Your wallet is on another network.
-              <button type="button" class="switch">Switch to Base</button>
-              <span id="switch-failed" hidden>Your wallet did not switch. Pick Base in your wallet itself.</span>
-            </span>
-            <span class="safe-elsewhere" hidden
-              >This Safe is on another network. Open the page from a Safe on Base.</span
-            >
-          </p>
-        </div>
-
-        <p id="reading" role="status" hidden>Reading the accounts…</p>
-        <section id="summary" aria-label="Summary" hidden>
-          <p class="summary-line"></p>
-          <p>
-            Carbon Impact pays out to <span class="payout-own">your address</span
-            ><code class="payout-other" translate="no"><a class="payout-to"></a></code>.
-          </p>
-        </section>
+        <p class="notice checks-failed" data-kind="automaxi" role="alert" hidden>
+          <span class="shape failed" aria-hidden="true"></span>Joining AutoMaxi is off: this page's checks of it failed.
+          Leaving works. <a href="#hydrex/automaxi/check">Which check failed</a>
+        </p>
+        <div class="wallet-slot"></div>
+        <p id="wrong-chain" class="notice" role="alert" hidden>
+          <span class="to-switch">
+            Your wallet is on another network.
+            <button type="button" class="switch">Switch to Base</button>
+            <span id="switch-failed" hidden>Your wallet did not switch. Pick Base in your wallet itself.</span>
+          </span>
+          <span class="safe-elsewhere" hidden>This Safe is on another network. Open the page from a Safe on Base.</span>
+        </p>
+        <p id="underway" class="notice" hidden>
+          A payout is under way: it reached <span class="underway-paid"></span> on <time class="underway-day"></time>,
+          and has not reached <span class="underway-left"></span> yet. A payout takes up to half a day.
+        </p>
+        <p id="epoch" hidden>
+          This epoch ends <time class="next-epoch">on Thursday at 00:00 UTC</time>, <span class="countdown">soon</span>.
+          A change made now moves the votes from then.
+        </p>
+        <p class="accounts-reading" role="status" hidden>Reading the accounts…</p>
         <p id="none" hidden>
           No account of this wallet holds HYDX. <a href="https://www.hydrex.fi/accounts">Lock HYDX on Hydrex</a> to make
           one.
         </p>
-        <p class="small">
-          Carbon Impact has retired <span class="tonnes">…</span> tonnes of carbon credits so far. It retires
-          <span class="retired-share">a share</span> of the rewards, and pays the rest to its members.
-        </p>
-
-        <section id="epoch" aria-labelledby="epoch-title">
-          <h2 id="epoch-title">This epoch</h2>
-          <p>
-            <time class="week-start">…</time> to <time class="week-end">…</time>, 00:00 UTC. It ends
-            <span class="countdown">soon</span>.
-          </p>
-          <progress class="elapsed" max="604800" value="0" aria-label="How much of this epoch has passed"></progress>
-          <ol class="timeline">
-            <li>
-              <b>Now, <time class="today">…</time>.</b> A join or a leave changes at once who can claim an account's
-              rewards.
-            </li>
-            <li>
-              <b><time class="vote-day">…</time>, just before the end.</b> Carbon Impact votes with its accounts.
-            </li>
-            <li><b>Right after the end.</b> It claims their rewards, retires a share and pays out the rest.</li>
-            <li>
-              <b>The next epoch starts <time class="week-end-when">on Thursday at 00:00 UTC</time>.</b> Joins and leaves
-              made now count for votes from then.
-            </li>
-          </ol>
-        </section>
 
         <div id="accounts" hidden>
-          <section class="group" data-group="stopped" aria-labelledby="group-stopped" hidden>
-            <h2 id="group-stopped">In an automation that stopped</h2>
-            <p>
-              They earn nothing from voting. Join an automation here, or leave to vote with them yourself on Hydrex.
-              <a href="#if-your-automation-stopped">What it means</a>
-            </p>
+          <section class="group" data-group="needs" aria-labelledby="group-needs" hidden>
+            <h2 id="group-needs">Needs you <span class="count"></span></h2>
+            <p>Those in an automation that stopped voting earn nothing.</p>
             <ul class="accounts"></ul>
-            <p class="pick-hint">Tick the accounts to join or leave with.</p>
+            <p class="pick-hint">Tick the accounts to change.</p>
             <p class="buttons">
-              <button type="button" data-action="join" data-automation="carbon-impact" data-named>Join</button>
-              <button type="button" data-action="join" data-automation="automaxi" data-named hidden>Join</button>
-              <button type="button" data-action="leave-other" class="secondary">Leave</button>
-              <button type="button" data-action="choose" class="secondary" hidden>Choose</button>
+              <button type="button" data-action="join" data-automation="carbon-impact">Join Carbon Impact</button>
+              <button type="button" data-action="join" data-automation="automaxi">Join AutoMaxi</button>
+              <button type="button" data-action="self" class="secondary">Leave</button>
             </p>
           </section>
-          <section class="group" data-group="attention" aria-labelledby="group-attention" hidden>
-            <h2 id="group-attention">Needs attention</h2>
-            <p>An automation here holds only some of their approvals. Join to set them all, or leave to clear them.</p>
+          <section class="group" data-group="in:carbon-impact" aria-labelledby="group-carbon-impact" hidden>
+            <h2 id="group-carbon-impact">
+              <a href="#hydrex/carbon-impact">Carbon Impact</a> <span class="count"></span>
+            </h2>
             <ul class="accounts"></ul>
-            <p class="pick-hint">Tick the accounts to join or leave with.</p>
-            <p class="buttons">
-              <button type="button" data-action="join" data-automation="carbon-impact" data-named>Join</button>
-              <button type="button" data-action="join" data-automation="automaxi" data-named hidden>Join</button>
-              <button type="button" data-action="leave" class="secondary">Leave</button>
-              <button type="button" data-action="choose" class="secondary" hidden>Choose</button>
-            </p>
-          </section>
-          <section class="group" data-group="in:carbon-impact" aria-labelledby="group-in" hidden>
-            <h2 id="group-in">In Carbon Impact</h2>
-            <ul class="accounts"></ul>
-            <p class="pick-hint">Tick the accounts to leave or move with.</p>
+            <p class="pick-hint">Tick the accounts to change.</p>
             <p class="buttons">
               <button type="button" data-action="leave" class="secondary">Leave</button>
-              <button type="button" data-action="join" data-automation="automaxi" class="secondary" hidden>
+              <button type="button" data-action="join" data-automation="automaxi" class="secondary">
                 Move to AutoMaxi
               </button>
-              <button type="button" data-action="choose" class="secondary" hidden>Choose</button>
             </p>
           </section>
-          <section class="group" data-group="in:automaxi" aria-labelledby="group-in-automaxi" hidden>
-            <h2 id="group-in-automaxi">In AutoMaxi</h2>
+          <section class="group" data-group="in:automaxi" aria-labelledby="group-automaxi" hidden>
+            <h2 id="group-automaxi"><a href="#hydrex/automaxi">AutoMaxi</a> <span class="count"></span></h2>
             <ul class="accounts"></ul>
-            <p class="pick-hint">Tick the accounts to leave or move with.</p>
+            <p class="pick-hint">Tick the accounts to change.</p>
             <p class="buttons">
               <button type="button" data-action="leave" class="secondary">Leave</button>
               <button type="button" data-action="join" data-automation="carbon-impact" class="secondary">
                 Move to Carbon Impact
               </button>
-              <button type="button" data-action="choose" class="secondary" hidden>Choose</button>
             </p>
           </section>
-          <section class="group" data-group="joining" aria-labelledby="group-joining" hidden>
-            <h2 id="group-joining">Joining</h2>
+          <section class="group" data-group="other" aria-labelledby="group-other" hidden>
+            <h2 id="group-other">Other accounts <span class="count"></span></h2>
             <ul class="accounts"></ul>
-            <p class="pick-hint">Tick the accounts to leave or move with.</p>
+            <p class="pick-hint">Tick the accounts to change.</p>
             <p class="buttons">
-              <button type="button" data-action="leave" class="secondary">Leave</button>
-              <button type="button" data-action="join" data-automation="carbon-impact" data-named class="secondary">
-                Join
-              </button>
-              <button type="button" data-action="join" data-automation="automaxi" data-named class="secondary" hidden>
-                Join
-              </button>
-              <button type="button" data-action="choose" class="secondary" hidden>Choose</button>
+              <button type="button" data-action="join" data-automation="carbon-impact">Join Carbon Impact</button>
+              <button type="button" data-action="join" data-automation="automaxi">Join AutoMaxi</button>
+              <button type="button" data-action="self" class="secondary">Leave</button>
             </p>
           </section>
-          <section class="group" data-group="leaving" aria-labelledby="group-leaving" hidden>
-            <h2 id="group-leaving">Leaving</h2>
+          <details class="group nothing" data-group="closed" hidden>
+            <summary class="nothing-count"></summary>
             <ul class="accounts"></ul>
-            <p class="pick-hint">Tick the accounts to join with.</p>
-            <p class="buttons">
-              <button type="button" data-action="join" data-automation="carbon-impact" data-named>Join</button>
-              <button type="button" data-action="join" data-automation="automaxi" data-named hidden>Join</button>
-              <button type="button" data-action="choose" class="secondary" hidden>Choose</button>
-            </p>
-          </section>
-          <section class="group" data-group="open" aria-labelledby="group-open" hidden>
-            <h2 id="group-open">Can join</h2>
-            <ul class="accounts"></ul>
-            <p class="pick-hint">Tick the accounts to join with.</p>
-            <p class="buttons">
-              <button type="button" data-action="join" data-automation="carbon-impact" data-named>Join</button>
-              <button type="button" data-action="join" data-automation="automaxi" data-named hidden>Join</button>
-              <button type="button" data-action="choose" class="secondary" hidden>Choose</button>
-            </p>
-          </section>
-          <section class="group" data-group="closed" aria-labelledby="group-closed" hidden>
-            <h2 id="group-closed">Can't join</h2>
-            <ul class="accounts"></ul>
-            <details class="empty-accounts" hidden>
-              <summary class="empty-count"></summary>
-              <ul class="accounts"></ul>
-            </details>
-          </section>
-          <p class="small">Earning Power is shown as on Hydrex: 1.3 times the votes.</p>
+          </details>
         </div>
 
-        <section id="receipts" aria-labelledby="receipts-title" hidden>
-          <h2 id="receipts-title">Payouts</h2>
-          <p class="receipts-reading" role="status">Reading your accounts' payouts from Base…</p>
-          <p class="receipts-failed notice" hidden>
-            The payouts could not be read from Base.
-            <button type="button" class="receipts-again secondary">Read the payouts again</button>
-          </p>
-          <div class="receipts-found" hidden>
-            <p>
-              For each of your accounts in <span class="receipts-automations">Carbon Impact</span>: up to when it has
-              been paid, and what waits to be claimed, from Hydrex's reward contracts; then the receipt of its last
-              payout, from the automation's events. An epoch counts as paid once claims since it ended took more than
-              half of what its rewards were worth, so that a claim of a few small rewards does not. Dollars are at the
-              prices of the flip before each payout, and of the last flip for what waits; a token without a deep enough
-              pool counts for nothing.
-            </p>
-            <p class="receipts-underway" hidden>
-              A payout is under way: it reached <span class="underway-paid"></span> on
-              <time class="underway-day"></time>, and has not reached <span class="underway-left"></span> yet. A payout
-              takes up to half a day.
-            </p>
-            <div class="standings"></div>
-          </div>
+        <section id="menu" aria-labelledby="menu-title">
+          <h2 id="menu-title">Who votes for your accounts</h2>
+          <ul class="menu">
+            <li class="choice" data-choice="carbon-impact">
+              <h3><a href="#hydrex/carbon-impact">Carbon Impact</a></h3>
+              <p class="small state">
+                <span class="state-normal"
+                  ><span class="shape running impact-shape" aria-hidden="true"></span
+                  ><b class="impact-state">Running</b> · voted <time class="impact-voted">…</time></span
+                ><span class="state-failed" hidden
+                  ><span class="shape failed" aria-hidden="true"></span><b>Checks failed:</b> joining off</span
+                >
+              </p>
+              <p>
+                Hydrex's automation. It votes with your accounts every week, retires a share of the rewards as carbon
+                credits, and pays you the rest in kVCM.
+              </p>
+              <dl class="key-facts">
+                <div>
+                  <dt>Takes</dt>
+                  <dd><span class="retired">…</span> retired, and a fee of <span class="fee">…</span></dd>
+                </div>
+                <div>
+                  <dt>Last epoch</dt>
+                  <dd class="record">…</dd>
+                </div>
+              </dl>
+            </li>
+            <li class="choice" data-choice="automaxi" data-needs="automaxi" hidden>
+              <h3><a href="#hydrex/automaxi">AutoMaxi</a></h3>
+              <p class="small state">
+                <span class="state-normal"
+                  ><span class="shape idle automaxi-shape" aria-hidden="true"></span><b class="automaxi-state">…</b
+                  ><span class="automaxi-voted-line" hidden> · voted <time class="automaxi-voted"></time></span></span
+                ><span class="state-failed" hidden
+                  ><span class="shape failed" aria-hidden="true"></span><b>Checks failed:</b> joining off</span
+                >
+              </p>
+              <p>
+                It votes for the pools it expects to earn the most bribes, and pays you what they earn, in the tokens
+                earned. Nobody controls it.
+              </p>
+              <dl class="key-facts">
+                <div>
+                  <dt>Takes</dt>
+                  <dd>1% of each claim</dd>
+                </div>
+                <div>
+                  <dt>Last epoch</dt>
+                  <dd class="record">…</dd>
+                </div>
+              </dl>
+            </li>
+            <li class="choice" data-choice="self">
+              <h3>Vote yourself</h3>
+              <p class="small state"><span class="shape idle" aria-hidden="true"></span><b>No automation</b></p>
+              <p>
+                Vote on Hydrex before each Thursday, 00:00 UTC, and claim what your votes earned. If you only want the
+                most, and have time each week, vote yourself.
+              </p>
+              <dl class="key-facts">
+                <div>
+                  <dt>Takes</dt>
+                  <dd>Nothing</dd>
+                </div>
+                <div>
+                  <dt>Last epoch</dt>
+                  <dd>Depends on your votes</dd>
+                </div>
+              </dl>
+            </li>
+          </ul>
         </section>
-
-        <details id="payout" hidden>
-          <summary>Payout address</summary>
-          <p>
-            Payouts for <code translate="no"><a class="owner"></a></code> go to
-            <code translate="no"><a class="payout"></a></code><span id="itself">, your own address</span>. This address
-            takes the payouts of all your accounts in Carbon Impact.
-          </p>
-          <p>
-            Only Carbon Impact's admin key, or a call from your own address made elsewhere, can change it.
-            <a href="#who-controls-what">Who controls what</a>
-          </p>
-        </details>
-
-        <nav class="help" aria-label="Help">
-          <a href="#what-joining-allows">What joining allows</a> · <a href="#timing">When things happen</a> ·
-          <a href="#leaving-at-any-time">Leaving</a> · <a href="#last-epoch">How the votes did</a> ·
-          <a href="#questions">Questions</a>
-        </nav>
       </div>
 
-      <div id="carbon-impact" class="view" data-title="Carbon Impact · metaDEX Café">
+      <div
+        class="view product"
+        data-view="product"
+        data-kind="carbon-impact"
+        data-title="Carbon Impact · metaDEX Café"
+        hidden
+      >
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#app">App</a> ›</nav>
         <h1 tabindex="-1">Carbon Impact</h1>
-        <ul class="states">
-          <li>
-            <span class="shape running impact-shape" aria-hidden="true"></span>
-            <span
-              ><b class="impact-state">Running</b><br /><span class="small"
-                >Voted <time class="impact-voted">…</time></span
-              ></span
-            >
-          </li>
-        </ul>
+        <p class="state">
+          <span class="state-normal"
+            ><span class="shape running impact-shape" aria-hidden="true"></span><b class="impact-state">Running</b> ·
+            voted <time class="impact-voted">…</time></span
+          ><span class="state-failed" hidden
+            ><span class="shape failed" aria-hidden="true"></span><b>Checks failed:</b> joining off</span
+          >
+        </p>
+        <p class="notice checks-failed" data-kind="carbon-impact" hidden>
+          <span class="shape failed" aria-hidden="true"></span>Joining Carbon Impact is off: this page's checks of it
+          failed. Leaving works. <a href="#hydrex/carbon-impact/check">Which check failed</a>
+        </p>
         <p class="lead">
-          Klima's automation. It votes with your accounts every week, retires a share of the rewards as carbon credits,
+          Hydrex's automation. It votes with your accounts every week, retires a share of the rewards as carbon credits,
           in the name "<bdi class="entity" translate="no">…</bdi>", and pays you the rest in kVCM.
         </p>
-        <dl class="key-facts">
-          <div>
-            <dt>Takes</dt>
-            <dd><span class="retired">…</span> of the rewards, retired, and a fee of <span class="fee">…</span></dd>
-          </div>
-          <div>
-            <dt>Pays you</dt>
-            <dd>kVCM, to your payout address</dd>
-          </div>
-          <div>
-            <dt>Costs you</dt>
-            <dd>The swaps to kVCM</dd>
-          </div>
-          <div>
-            <dt>Leaving</dt>
-            <dd>One call, at any time: claims stop at once, and your votes come back at the next flip</dd>
-          </div>
-        </dl>
-        <p class="buttons"><a class="button" href="#app">Join from the app</a></p>
+        <p>
+          Your account stays in your wallet. Leave with one call, at any time: claims stop at once, and your votes come
+          back at the next epoch, <time class="next-epoch">on Thursday at 00:00 UTC</time>.
+        </p>
+        <div class="wallet-slot"></div>
+        <p class="accounts-reading" role="status" hidden>Reading the accounts…</p>
+        <div class="mine" hidden>
+          <p class="mine-none" hidden>None of this wallet's accounts is in Carbon Impact or can join it.</p>
+          <section class="group" data-group="in:carbon-impact" aria-labelledby="mine-carbon-impact" hidden>
+            <h2 id="mine-carbon-impact">Your accounts in it</h2>
+            <ul class="accounts"></ul>
+          </section>
+          <section class="group" data-group="can:carbon-impact" aria-labelledby="can-carbon-impact" hidden>
+            <h2 id="can-carbon-impact">Your accounts that can join</h2>
+            <ul class="accounts"></ul>
+            <p class="pick-hint">Tick the accounts to join with.</p>
+            <p class="buttons">
+              <button type="button" data-action="join" data-automation="carbon-impact">Join Carbon Impact</button>
+            </p>
+          </section>
+        </div>
 
-        <h2 id="carbon-impact-fees">Fee facts</h2>
+        <h2>Last epoch</h2>
+        <p><span class="record-when"></span><span class="record">…</span></p>
+        <p class="through">
+          <img src="klima-protocol.svg" alt="" width="24" height="24" />
+          <span>Retired so far: <span class="tonnes">…</span> tonnes of carbon credits, through Klima Protocol</span>
+        </p>
+
+        <h2>Fee facts</h2>
         <dl class="fee-facts">
           <div>
             <dt>Taken</dt>
@@ -673,13 +279,12 @@
           </div>
           <div>
             <dt>The most it can become</dt>
-            <dd data-fact="most">100% retired, and a fee of <span class="max-fee">…</span></dd>
+            <dd>100% retired, and a fee of <span class="max-fee">…</span></dd>
           </div>
           <div>
             <dt>Goes to</dt>
             <dd>
-              Carbon credits, retired through Klima Protocol; the fee to its treasury,
-              <code translate="no"><a class="treasury"></a></code>
+              Carbon credits, retired through Klima Protocol; the fee, to <a class="treasury-named">its treasury</a>
             </dd>
           </div>
           <div>
@@ -696,506 +301,70 @@
           </div>
         </dl>
 
-        <h2 id="carbon-impact-money">Last epoch, per 1,000 Earning Power</h2>
-        <p>
-          <span class="last-per-power">…</span> earned from <time class="last-start">…</time> to
-          <time class="last-end">…</time>, of which <span class="paid-share">…</span> paid to you in kVCM.
-          <a href="#last-epoch">Its record against all of Hydrex, and how it voted</a>
-        </p>
-
-        <h2 id="carbon-impact-more">The rest, in full</h2>
-        <ul>
-          <li><a href="#what-joining-allows">What joining allows</a>, and why your account stays in your wallet</li>
-          <li><a href="#timing">If you join now</a>: what happens when</li>
-          <li><a href="#who-controls-what">Who controls what</a></li>
-          <li><a href="#carbon">The carbon credits</a></li>
-          <li><a href="#verify">What the page checks</a>, and how to check it yourself</li>
-        </ul>
-      </div>
-
-      <div id="automaxi" class="view" data-title="AutoMaxi · metaDEX Café">
-        <h1 tabindex="-1">AutoMaxi</h1>
-        <p class="automaxi-absent notice" hidden>
-          AutoMaxi is not on Base yet. Its address is known in advance: once there is code there, and it is the code
-          this page knows, you can join it from the app.
-        </p>
-        <ul class="states">
-          <li>
-            <span class="shape idle automaxi-shape" aria-hidden="true"></span>
-            <span
-              ><b class="automaxi-state">…</b
-              ><span class="automaxi-voted-line" hidden
-                ><br /><span class="small">Voted <time class="automaxi-voted"></time></span></span
-            ></span>
-          </li>
-        </ul>
-        <p class="lead">
-          It votes with your accounts for the pools it expects to earn the most bribes, and pays you what they earn, in
-          the tokens earned, less 1%. Nobody controls it: it has no owner, no settings and no upgrade path.
-        </p>
-        <dl class="key-facts">
-          <div>
-            <dt>Takes</dt>
-            <dd>1% of each claim</dd>
-          </div>
-          <div>
-            <dt>Pays you</dt>
-            <dd>The tokens earned, unswapped, to your own address</dd>
-          </div>
-          <div>
-            <dt>Costs you</dt>
-            <dd>Nothing else: the claims cost you no gas</dd>
-          </div>
-          <div>
-            <dt>Leaving</dt>
-            <dd>One call, at any time: claims through it stop at once, and your votes come back at the next flip</dd>
-          </div>
-        </dl>
-        <p class="buttons automaxi-join" hidden><a class="button" href="#app">Join from the app</a></p>
-
-        <h2 id="automaxi-fees">Fee facts</h2>
-        <p>Its code fixes all six, and the page checks its code.</p>
-        <dl class="fee-facts">
-          <div>
-            <dt>Taken</dt>
-            <dd>1% of each claim</dd>
-          </div>
-          <div>
-            <dt>The most it can become</dt>
-            <dd data-fact="most">1%, fixed in its code</dd>
-          </div>
-          <div>
-            <dt>Goes to</dt>
-            <dd>
-              The 2-of-3 Safe
-              <code translate="no"
-                ><a href="https://basescan.org/address/0x450c72de8c0079B49AcedF294a13011bd09D125B"
-                  >0x450c72de8c0079B49AcedF294a13011bd09D125B</a
-                ></code
-              >
-            </dd>
-          </div>
-          <div>
-            <dt>When</dt>
-            <dd>Each claim</dd>
-          </div>
-          <div>
-            <dt>Other costs</dt>
-            <dd>None. It pays in the tokens earned, unswapped.</dd>
-          </div>
-          <div>
-            <dt>Who can change it</dt>
-            <dd>Nobody. A change means a new deployment, and owners joining again.</dd>
-          </div>
-        </dl>
-
-        <h2 id="automaxi-money">Last epoch, per 1,000 Earning Power</h2>
-        <p class="automaxi-unread">
-          Last epoch's figures <span class="automaxi-unread-why">are being read from Base.</span>
-        </p>
-        <p class="automaxi-no-record" hidden>
-          No record yet. AutoMaxi has one once an epoch it voted in has ended. The page shows no projection in the
-          meantime.
-        </p>
-        <div class="automaxi-has-record" hidden>
-          <p>
-            <span class="automaxi-per-power">…</span> earned from <time class="automaxi-last-start">…</time> to
-            <time class="automaxi-last-end">…</time>, of which <span class="automaxi-paid-per-power">…</span> paid to
-            you, in the tokens earned.
-          </p>
-          <p>It voted for:</p>
-          <ul class="automaxi-pools"></ul>
-        </div>
-
-        <h2 id="automaxi-custody">What joining allows</h2>
-        <p>
-          <strong>Your account stays in your wallet.</strong> Joining approves AutoMaxi to vote with it and to claim its
-          rewards, which it pays to your own address. There is no payout address to change.
-        </p>
-        <p>
-          While you are in, anyone can claim your rewards through AutoMaxi, at any time, and the fee is the same whoever
-          calls. They are claimed for you right after each epoch ends. Rewards nobody has claimed through it yet, you
-          can still claim on Hydrex yourself.
-        </p>
-
-        <h2 id="automaxi-join-now">If you join now</h2>
-        <ol class="timeline">
-          <li><b>Now.</b> Anyone can claim your account's rewards through AutoMaxi, which pays them to you.</li>
-          <li>
-            <b>At the next flip, Thursday at 00:00 UTC.</b> AutoMaxi votes with your account. Anyone can propose its
-            votes: it takes one only if it expects it to earn at least $1 more in bribes, counting WETH, cbBTC, USDC and
-            EURC at Chainlink's prices, and some trading fees in other tokens at their pool's average price over the
-            last half hour. A week without a vote earns nothing.
-          </li>
-          <li><b>After each epoch ends.</b> AutoMaxi claims the rewards, and sends them to you, less 1%.</li>
-        </ol>
-
-        <h2 id="automaxi-control">Who controls what</h2>
-        <ul>
-          <li>Nobody controls AutoMaxi. A new fee, treasury or price feed means a new deployment.</li>
-          <li>
-            Hydrex can upgrade its Voter, VotingEscrow and reward contracts, so AutoMaxi is only as safe as they are.
-          </li>
-          <li>
-            The owner of Hydrex's reward contracts can deposit a bribe, win the vote with it and take it back, or take
-            any bribe's tokens.
-          </li>
-          <li>
-            Chainlink's prices only steer its votes. If a feed goes stale, its token counts for nothing, and a worse
-            vote can win while it lasts.
-          </li>
-          <li>
-            Hydrex's pools price the trading fees in other tokens, and they too only steer its votes. Someone who moves
-            a thin pool's price, or Hydrex, which can change how its pools report prices, can make a worse vote win. A
-            pool's fees in other tokens never count for more than its fees in the four tokens above.
-          </li>
-        </ul>
-
-        <h2 id="automaxi-checks">What the page checks</h2>
-        <p>
-          Before anyone can join, the page checks that the code at
-          <code translate="no"
-            ><a href="https://basescan.org/address/0x692c323B425A9DfeebE302F56168a7798D93EAC5"
-              >0x692c323B425A9DfeebE302F56168a7798D93EAC5</a
-            ></code
-          >
-          has the hash
-          <code translate="no">0x4872932431e0d175fb1213e9ffec2b8f0ebd1d9d490643d6df5b2c6d0b379847</code>, of version 2
-          of the source at <a href="https://github.com/ldeso/hydrex-conduit">github.com/ldeso/hydrex-conduit</a>, commit
-          <code translate="no">718c107</code>; that it points to Hydrex's VotingEscrow and Voter; and what joining it
-          approves. If a check fails, joining is off, and leaving still works.
-          <a href="#verify">How to check it yourself</a>
-        </p>
-      </div>
-
-      <div id="how-it-works" class="view" data-title="How it works · metaDEX Café">
-        <h1 tabindex="-1">How it works</h1>
-        <p class="lead">
-          Everything Home and the review say about Carbon Impact, in full, with where to check it on Base. Each section
-          has its own address, to send to someone or link from elsewhere.
-        </p>
-        <nav class="contents" aria-label="Sections">
-          <ol>
-            <li><a href="#if-your-automation-stopped">If your automation stopped</a></li>
-            <li><a href="#what-joining-allows">What joining allows</a></li>
-            <li><a href="#timing">When things happen</a></li>
-            <li><a href="#last-epoch">How the votes did</a></li>
-            <li><a href="#who-controls-what">Who controls what</a></li>
-            <li><a href="#carbon">The carbon credits</a></li>
-            <li><a href="#for-co-signers">For co-signers</a></li>
-            <li><a href="#verify">Check it yourself</a></li>
-            <li><a href="#questions">Questions</a></li>
-            <li><a href="#words">Words</a></li>
-          </ol>
-        </nav>
-
-        <section id="if-your-automation-stopped" aria-labelledby="if-your-automation-stopped-title">
-          <h2 id="if-your-automation-stopped-title">If your automation stopped</h2>
-          <p>
-            Hydrex has turned off its other automations. Carbon Impact is the one that still votes every week. As read
-            from Hydrex's Voter:
-          </p>
-          <div class="scroll">
-            <table class="automations">
-              <thead>
-                <tr>
-                  <th scope="col">Automation</th>
-                  <th scope="col">Last voted</th>
-                  <th scope="col">Earning Power still in it</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr data-automation="0x53388a4E98Bb56F8571433F5461010Fc287929d3">
-                  <th scope="row"><bdi translate="no">Hydrex Lock Maxi</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0x809F8175b8F60960dF2bc7a78a7C4Eb04d138AF0">
-                  <th scope="row"><bdi translate="no">Liquid Hydrex</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0xE57b3Ea02336B9b418cA523aB5aD6f479d93bD1D">
-                  <th scope="row"><bdi translate="no">USDC</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0x65CD36F27bB1B4Ae54289622dF43A063c1e7F829">
-                  <th scope="row"><bdi translate="no">Bitcoin</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0x24a0C9A719B2d280BC1AA407b5Bc2821fcBC3244">
-                  <th scope="row"><bdi translate="no">TGN</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0xf34F3A2f447Bc1A93553040E104bBd154221692A">
-                  <th scope="row"><bdi translate="no">Ethereum</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0xD656bd0E433baA17Ed1a869a7AC9A1C3303DFddD">
-                  <th scope="row"><bdi translate="no">WMTX</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0x612F40755A99017a7e61F35A555e9B3Ae5951b5C">
-                  <th scope="row"><bdi translate="no">Bluechips</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0x92D048cbfea68d7A5e312E6c68Ba0B798E5F9CaD">
-                  <th scope="row"><bdi translate="no">Onchain cbAssets</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0xb0095571C816a6Ce04Ba36C09cf01B9CB3da870c">
-                  <th scope="row"><bdi translate="no">EURC</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0x6e374F10475D42A5A6AF1Fb11574FE91cBC658b9">
-                  <th scope="row"><bdi translate="no">Base Gaming</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0x528Ad8A5630D777285F72DF8390123AE437B3F62">
-                  <th scope="row"><bdi translate="no">Base Memes</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-                <tr data-automation="0x9691Db8C4C8a36E857BAd6ea7125fC6CCF09428a">
-                  <th scope="row"><bdi translate="no">Reppo (Vote & Earn)</bdi></th>
-                  <td><time class="voted" datetime="2026-09-09">Wed 9 Sep</time></td>
-                  <td class="still-in">…</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <h3>What it means for an account still in one</h3>
-          <ul>
-            <li>
-              <b>Its votes count for nothing.</b> Hydrex counts a vote only in the epoch it is cast, and the automation
-              has not voted since.
-            </li>
-            <li><b>It earns no fees or incentives from voting,</b> since the epoch that began on Thu 10 Sep.</li>
-            <li>
-              <b>You can't vote with it</b> while the automation holds its votes, and the automation can still claim its
-              rewards.
-            </li>
-            <li>
-              <b>What the automation left unclaimed is yours to claim on Hydrex:</b> small amounts, from before it
-              stopped. Nothing has accrued since.
-            </li>
-          </ul>
-          <h3>What you can do</h3>
-          <p>Two ways out, both from this page, and both one call per account:</p>
-          <ol>
-            <li>
-              <b>Leave the automation, and vote yourself.</b> Its access ends at once, and your votes come back to you
-              from the next epoch: vote with them on Hydrex every week.
-            </li>
-            <li>
-              <b>Join Carbon Impact.</b> It replaces the stopped automation's access directly, and votes with the
-              account from the next epoch.
-            </li>
-          </ol>
-          <p>
-            Either way, the votes move at the next epoch, which starts on Thursday at 00:00 UTC. To keep what the
-            stopped automation left unclaimed, <a href="https://www.hydrex.fi/accounts">claim it on Hydrex</a> first.
-          </p>
-          <p class="buttons"><a class="button" href="#app">Check my accounts</a></p>
-        </section>
-
-        <section id="what-joining-allows" aria-labelledby="what-joining-allows-title">
-          <h2 id="what-joining-allows-title">What joining allows</h2>
-          <p>
-            Joining is one call per account, which approves Carbon Impact for two things only: voting with the account,
-            and claiming its rewards. The review before your wallet asks shows the same, for the accounts you picked.
-          </p>
-          <h3 id="your-votes">It votes with the account</h3>
-          <p>
-            From the next epoch, which starts on Thursday at 00:00 UTC. Once the account joins, you can't vote with it
-            yourself, until the epoch after it leaves. It votes for the pools it picks, the same for every account in
-            it.
-          </p>
-          <h3 id="unclaimed-rewards">It can claim the account's rewards at once, even those your own votes earned</h3>
-          <p>
-            <strong
-              >From the moment an account joins, Carbon Impact can claim any rewards it has not claimed yet,</strong
-            >
-            and this epoch's once the epoch ends, whoever's votes earned them. They are swapped and retired like the
-            rest. To keep them as they are, <a href="https://www.hydrex.fi/accounts">claim them on Hydrex</a> before you
-            join.
-          </p>
-          <h3 id="swaps-and-payouts">It swaps, retires and pays</h3>
-          <p>
-            Right after each epoch ends, Carbon Impact claims the rewards and swaps them into kVCM, through routers its
-            admin key approved. It retires <span class="retired-share">a share</span> of the kVCM as carbon credits, and
-            sends the rest to your payout address. Swaps have their usual costs.
-            <a href="#carbon">The carbon credits</a>
-          </p>
-          <h3 id="your-hydx">Your HYDX stays in your account, and the account in your wallet</h3>
-          <p>
-            Neither is transferred. Joining sets two of the approvals Hydrex's VotingEscrow offers: one that sends the
-            account's claims to Carbon Impact, and one that delegates its votes. Neither lets Carbon Impact transfer the
-            account, or the HYDX in it. <a href="#verify">How to see it on Basescan</a>
-          </p>
-          <h3 id="settings-can-change">One admin key can change the settings</h3>
-          <p>
-            The share retired (up to 100%), the tokens it pays out in, the routers, and your payout address.
-            <a href="#who-controls-what">Who controls what</a>
-          </p>
-          <h3 id="leaving-at-any-time">You can leave at any time</h3>
-          <p>
-            Leaving is the same call with false, and works even if this page's checks fail. From that moment Carbon
-            Impact can no longer claim the account's rewards: what it has not claimed, this epoch's included, is yours
-            to claim on Hydrex. Your votes come back to you from the next epoch; until then they count for Carbon
-            Impact.
-          </p>
-        </section>
-
-        <section id="timing" aria-labelledby="timing-title">
-          <h2 id="timing-title">When things happen</h2>
-          <p>
-            An epoch runs for a week, from Thursday at 00:00 UTC. Two rules decide everything else:
-            <b>claims move at once,</b> in the same transaction as a join or a leave, and
-            <b>votes move at the next epoch,</b> since Hydrex counts an account's votes for whoever held them when the
-            epoch started.
-          </p>
-          <h3>Join on a Monday</h3>
-          <ol class="timeline">
-            <li>
-              <b>Monday, as you join.</b> Carbon Impact can claim the account's rewards from now on, including any you
-              have not claimed. This epoch's votes stay as they were: yours, or the automation's it was in.
-            </li>
-            <li>
-              <b>Wednesday, just before 24:00 UTC.</b> Carbon Impact votes with its accounts, but not yet with yours.
-            </li>
-            <li>
-              <b>Thursday, 00:00 UTC.</b> The next epoch starts. The account's votes now count for Carbon Impact, and
-              you can't vote with it.
-            </li>
-            <li>
-              <b>Thursday, right after.</b> Carbon Impact claims the rewards of the epoch that ended. It can claim your
-              account's too, which your own votes earned, and swaps, retires and pays them like the rest.
-            </li>
-            <li>
-              <b>The next Wednesday, just before the end.</b> Carbon Impact votes with your account for the first time.
-            </li>
-            <li>
-              <b>The Thursday after, right after 00:00 UTC.</b> The first payout from its votes: a share retired, the
-              rest to your payout address in kVCM. Then every Thursday.
-            </li>
-          </ol>
-          <h3>Join on a Thursday</h3>
-          <p>
-            The same, a week longer. Join on Thursday at 10:00 UTC, right after an epoch starts, and the votes move only
-            at the Thursday after: almost a week later than joining on the Wednesday before. Join on Wednesday at 23:00
-            UTC, and they move an hour later.
-          </p>
-          <h3>Leave</h3>
-          <p>
-            Claims stop at once: Carbon Impact can no longer claim the account's rewards. Its votes count for Carbon
-            Impact until the epoch ends, and what they earn is yours to claim on Hydrex after the flip. From Thursday at
-            00:00 UTC, you vote with the account again, or choose another automation.
-          </p>
-          <p class="small">
-            Hydrex's own app has said that a change of automation takes effect "after the next payout". On Base, claims
-            move at once and votes from the next epoch, as above.
-          </p>
-        </section>
-
-        <section id="last-epoch" aria-labelledby="last-epoch-title">
-          <h2 id="last-epoch-title">How the votes did last epoch</h2>
-          <p>
-            What Carbon Impact's votes earned in the epoch from <time class="last-start">…</time> to
-            <time class="last-end">…</time>, read from Hydrex's reward contracts on Base, and what all of Hydrex's
-            Earning Power earned on average. Once an epoch has ended, what each vote earned is final.
-          </p>
-          <p class="needs-script small">
-            What the votes earned is read from Base by the page's script, which has not run.
-          </p>
-          <p class="earnings-failed notice" role="alert" hidden>
-            Reading what the votes earned from Base failed. The page tries again in a few minutes.
-          </p>
-          <div class="scroll">
-            <table class="earnings">
-              <thead>
-                <tr>
-                  <td></td>
-                  <th scope="col">Carbon Impact</th>
-                  <th scope="col">All votes on Hydrex</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Earning Power</th>
-                  <td class="ours earning-power">…</td>
-                  <td class="all earning-power">…</td>
-                </tr>
-                <tr>
-                  <th scope="row">Pools voted for</th>
-                  <td class="ours pools">…</td>
-                  <td class="all pools">…</td>
-                </tr>
-                <tr>
-                  <th scope="row">What the votes earned</th>
-                  <td class="ours earned">…</td>
-                  <td class="all earned">…</td>
-                </tr>
-                <tr>
-                  <th scope="row">Of which fees</th>
-                  <td class="ours fees">…</td>
-                  <td class="all fees">…</td>
-                </tr>
-                <tr>
-                  <th scope="row">Of which incentives</th>
-                  <td class="ours incentives">…</td>
-                  <td class="all incentives">…</td>
-                </tr>
-                <tr>
-                  <th scope="row">Per 1,000 Earning Power</th>
-                  <td class="ours per-power">…</td>
-                  <td class="all per-power">…</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="all-status small" role="status">
-            The column for all of Hydrex reads every pool's rewards, about 10,000 reads, so the page reads it only once
-            this section shows.
-          </p>
-          <p class="all-failed notice" role="alert" hidden>
-            Reading all of Hydrex failed. <button type="button" class="compare-again secondary">Try again</button>
-          </p>
-          <p class="versus" hidden></p>
-          <ul>
-            <li>
-              <b>Earned by its votes, not paid to you.</b> A share is retired, swaps cost something, and tokens worth
-              too little to claim may be left.
-            </li>
-            <li>
-              <b>At prices in Hydrex's pools when the epoch ended:</b> each token's average over the half hour before
-              the flip, in the deepest of Hydrex's pools that pairs it with USDC, WETH or cbBTC; WETH and cbBTC at
-              Chainlink's ETH / USD and BTC / USD feeds; USDC as a dollar. A pool counts only if it holds at least $250
-              of each of its tokens, and ten times the value it prices. A token without one is left unpriced, and counts
-              for nothing.
-            </li>
-            <li>
-              <b>Fees and incentives.</b> Hydrex publishes weekly rewards that leave out the incentives, so its figure
-              is lower.
-            </li>
-            <li>
-              <b>Compared with the average,</b> not with the best pool: a pool's yield falls as votes move to it, and
-              the average is what Earning Power actually earned. One epoch is noisy, as incentives change every week.
-            </li>
-          </ul>
-          <details class="earned-pools">
-            <summary>The pools it voted for</summary>
+        <details class="fold" data-section="record">
+          <summary>Against all of Hydrex</summary>
+          <p class="record-waiting">Last epoch's figures are being read from Base.</p>
+          <p class="record-none" hidden>No record yet: it had no votes last epoch.</p>
+          <div class="record-found" hidden>
+            <p>
+              What its votes earned last epoch, read from Hydrex's reward contracts, and what all of Hydrex's Earning
+              Power earned on average, at the same prices.
+            </p>
             <div class="scroll">
-              <table>
+              <table class="earnings">
+                <thead>
+                  <tr>
+                    <td></td>
+                    <th scope="col">Carbon Impact</th>
+                    <th scope="col">All votes on Hydrex</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Earning Power</th>
+                    <td class="ours earning-power">…</td>
+                    <td class="all earning-power">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Pools voted for</th>
+                    <td class="ours pools">…</td>
+                    <td class="all pools">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">What the votes earned</th>
+                    <td class="ours earned">…</td>
+                    <td class="all earned">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Of which fees</th>
+                    <td class="ours fees">…</td>
+                    <td class="all fees">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Of which incentives</th>
+                    <td class="ours incentives">…</td>
+                    <td class="all incentives">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Per 1,000 Earning Power</th>
+                    <td class="ours per-power">…</td>
+                    <td class="all per-power">…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="all-status small" role="status" hidden>Reading every pool's rewards…</p>
+            <p class="all-failed notice" role="alert" hidden>
+              Reading all of Hydrex failed. <button type="button" class="compare-again secondary">Try again</button>
+            </p>
+            <p class="versus" hidden></p>
+            <p class="small">
+              Earned by its votes, not paid to you: a share is retired, swaps cost something, and tokens worth too
+              little to claim may be left. <a href="#about/figures">How the figures are read</a>
+            </p>
+            <h3>The pools it voted for</h3>
+            <div class="scroll">
+              <table class="earned-pools">
                 <thead>
                   <tr>
                     <th scope="col">Pool</th>
@@ -1206,21 +375,48 @@
                 <tbody></tbody>
               </table>
             </div>
-          </details>
-        </section>
+          </div>
+        </details>
 
-        <section id="who-controls-what" aria-labelledby="who-controls-what-title">
-          <h2 id="who-controls-what-title">Who controls what</h2>
+        <details class="fold" data-section="joining">
+          <summary>Joining and leaving</summary>
           <p>
-            Carbon Impact is a contract of Hydrex's, whose source is in
-            <a href="https://github.com/hydrexfi/hydrex-periphery">Hydrex's repository</a>.
+            Joining is one call per account. It approves Carbon Impact for two things: voting with the account, and
+            claiming its rewards.
           </p>
-          <h3>Votes and payouts</h3>
+          <ul>
+            <li>
+              <b>Claims move at once.</b> From the moment an account joins, Carbon Impact can claim any rewards it has
+              not claimed yet, even those your own votes earned, and swaps and retires them like the rest. To keep them
+              as they are, <a href="https://www.hydrex.fi/accounts">claim them on Hydrex</a> before you join.
+            </li>
+            <li>
+              <b>Votes move at the next epoch,</b> <time class="next-epoch">on Thursday at 00:00 UTC</time>. From then,
+              you can't vote with the account yourself, until the epoch after it leaves. Join on Wednesday at 23:00 UTC,
+              and the votes move an hour later; join on Thursday at 10:00 UTC, and almost a week later.
+            </li>
+            <li>
+              <b>Nothing is transferred.</b> The account and its HYDX stay in your wallet: neither approval lets Carbon
+              Impact transfer them.
+            </li>
+            <li>
+              <b>Leaving</b> is the same call with false, and works even if this page's checks fail. Claims stop at
+              once: what Carbon Impact has not claimed, this epoch's included, is yours to claim on Hydrex. Your votes
+              come back at the next epoch; until then they count for Carbon Impact.
+            </li>
+          </ul>
+        </details>
+
+        <details class="fold" data-section="control">
+          <summary>Who controls what</summary>
           <p>
-            Each week, Carbon Impact votes with the Earning Power of every account in it, and claims, swaps, retires and
-            pays out each account. The pools and the swaps are picked each week, through routers the admin key approved,
-            and so is how much to retire, up to <span class="retired-share">the share set</span> of the kVCM: the
-            contract stops it retiring more.
+            Carbon Impact is Hydrex's: its code is in
+            <a href="https://github.com/hydrexfi/hydrex-periphery">Hydrex's repository</a>, and Hydrex lists it among
+            its automations. A keeper, not Hydrex, now sends its votes and payouts.
+          </p>
+          <p>
+            Each week, it votes with the Earning Power of every account in it, and claims, swaps, retires and pays out
+            each account. The pools, the swaps and how much to retire, up to the share set, are picked each week.
           </p>
           <h3>The admin key</h3>
           <p>It can change, at any time and for every member at once:</p>
@@ -1234,35 +430,25 @@
           </ul>
           <p>It can also withdraw any tokens the automation holds.</p>
           <h3>What nobody can do</h3>
-          <p>
-            Move your account or your HYDX. What joining approves is voting and claiming; the account stays yours, and
-            leaving ends both.
-          </p>
+          <p>Move your account or your HYDX. Joining approves voting and claiming only, and leaving ends both.</p>
           <h3>How a change would show</h3>
           <p>
-            Every change is a transaction from the admin key to
-            <a href="https://basescan.org/address/0xdE91885cF35ac57DF0c4A75c16862127dBe8317c"
-              >the automation, on Basescan</a
-            >. This page reads the share retired and the name on the retirements from the automation each time it opens,
-            and shows them as they are. It checks what joining approves, and turns joining off if that changed.
+            Every change is a transaction from the admin key to the automation, on Basescan. This page reads the share
+            retired, the fee and the name on the retirements each time it opens, and shows them as they are. It checks
+            what joining approves, and turns joining off if that changed.
           </p>
-          <p>
-            This page names no operator, and asks you to trust no one: what it says is read from Base, and
-            <a href="#verify">anyone can check it</a>.
-          </p>
-        </section>
+        </details>
 
-        <section id="carbon" aria-labelledby="carbon-title">
-          <h2 id="carbon-title">The carbon credits</h2>
+        <details class="fold" data-section="carbon">
+          <summary>The carbon credits</summary>
           <p>
             <b>kVCM</b> is <a href="https://www.klimaprotocol.com/">Klima Protocol</a>'s token, backed by carbon
             credits. Carbon Impact swaps the rewards into kVCM, and pays you in it. You can keep it, retire it yourself,
-            or swap it on Base, as on Hydrex.
+            or swap it on Base.
           </p>
           <p>
             <b>Retiring</b> a carbon credit uses it up for good: no one can sell it or claim it again. Each payout,
-            Carbon Impact retires <span class="retired-share">a share</span> of the kVCM as carbon credits through
-            Klima. It has retired <span class="tonnes">…</span> tonnes so far.
+            Carbon Impact retires up to <span class="retired">…</span> of the kVCM as carbon credits, through Klima.
           </p>
           <p>
             <b>Where to see it.</b> Each retirement is a transaction of
@@ -1298,255 +484,576 @@
             </div>
           </dl>
           <p>
-            They are the same for every member: the automation keeps one set for all its retirements, and only its admin
-            key can change them, for everyone at once. A retirement does not carry your name or address; a name per
-            member would need a new automation, which every member would have to join again.
+            They are the same for every member, and only the admin key can change them, for everyone at once. A
+            retirement does not carry your name or address.
           </p>
-        </section>
+        </details>
 
-        <section id="for-co-signers" aria-labelledby="for-co-signers-title">
-          <h2 id="for-co-signers-title">For co-signers</h2>
-          <p>
-            Someone proposed a Safe transaction from this page, and asks you to sign it in Safe{Wallet}. Here is what it
-            does.
-          </p>
-          <ul>
-            <li>
-              <b>It calls Hydrex's VotingEscrow</b>,
-              <code translate="no">0x25B2ED7149fb8A05f6eF9407d9c8F878f59cd1e1</code>, once per account:
-              <code translate="no">setConduitApproval(conduit, tokenId, approve)</code>.
-            </li>
-            <li>
-              <b>With <code>true</code> and Carbon Impact's address</b>,
-              <code translate="no">0xdE91885cF35ac57DF0c4A75c16862127dBe8317c</code>, the account joins: Carbon Impact
-              can claim its rewards at once, unclaimed ones included, and votes with it from the next epoch. It pays out
-              to the Safe, or to the payout address set for it, less the share it retires.
-            </li>
-            <li>
-              <b>With <code>false</code></b
-              >, the account leaves Carbon Impact, or, with another automation's address, that automation.
-            </li>
-            <li><b>Nothing is transferred:</b> the accounts and their HYDX stay in the Safe.</li>
-            <li><b>To undo it,</b> propose the same call with the other value, at any time.</li>
-          </ul>
-          <p>
-            In Safe{Wallet}, check that each call goes to the VotingEscrow above, with the conduit above, and for
-            accounts the Safe holds. <a href="#what-joining-allows">What joining allows</a> ·
-            <a href="#who-controls-what">Who controls what</a>
-          </p>
-        </section>
-
-        <section id="verify" aria-labelledby="verify-title">
-          <h2 id="verify-title">Check it yourself</h2>
-          <p>
-            The official address is <code translate="no">https://metadex.cafe/</code>. Anyone can host a changed copy,
-            for example one that approves another conduit, so use this address, and read what your wallet shows.
-          </p>
+        <details class="fold" data-section="check">
+          <summary>Check it</summary>
           <h3>The contracts</h3>
           <ul>
             <li>
               Carbon Impact, a conduit:
-              <a href="https://basescan.org/address/0xdE91885cF35ac57DF0c4A75c16862127dBe8317c"
-                ><code translate="no">0xdE91885cF35ac57DF0c4A75c16862127dBe8317c</code></a
-              >
-            </li>
-            <li>
-              AutoMaxi, a conduit, version 2:
-              <a href="https://basescan.org/address/0x692c323B425A9DfeebE302F56168a7798D93EAC5"
-                ><code translate="no">0x692c323B425A9DfeebE302F56168a7798D93EAC5</code></a
+              <code translate="no"
+                ><a href="https://basescan.org/address/0xdE91885cF35ac57DF0c4A75c16862127dBe8317c"
+                  >0xdE91885cF35ac57DF0c4A75c16862127dBe8317c</a
+                ></code
               >
             </li>
             <li>
               Hydrex's VotingEscrow, which holds the accounts:
-              <a href="https://basescan.org/address/0x25B2ED7149fb8A05f6eF9407d9c8F878f59cd1e1"
-                ><code translate="no">0x25B2ED7149fb8A05f6eF9407d9c8F878f59cd1e1</code></a
+              <code translate="no"
+                ><a href="https://basescan.org/address/0x25B2ED7149fb8A05f6eF9407d9c8F878f59cd1e1"
+                  >0x25B2ED7149fb8A05f6eF9407d9c8F878f59cd1e1</a
+                ></code
               >
             </li>
             <li>
               Hydrex's Voter, which counts the votes:
-              <a href="https://basescan.org/address/0xc69E3eF39E3fFBcE2A1c570f8d3ADF76909ef17b"
-                ><code translate="no">0xc69E3eF39E3fFBcE2A1c570f8d3ADF76909ef17b</code></a
+              <code translate="no"
+                ><a href="https://basescan.org/address/0xc69E3eF39E3fFBcE2A1c570f8d3ADF76909ef17b"
+                  >0xc69E3eF39E3fFBcE2A1c570f8d3ADF76909ef17b</a
+                ></code
               >
             </li>
             <li>
               kVCM:
-              <a href="https://basescan.org/token/0x00fBAC94Fec8D4089d3fe979F39454F48c71A65d"
-                ><code translate="no">0x00fBAC94Fec8D4089d3fe979F39454F48c71A65d</code></a
+              <code translate="no"
+                ><a href="https://basescan.org/token/0x00fBAC94Fec8D4089d3fe979F39454F48c71A65d"
+                  >0x00fBAC94Fec8D4089d3fe979F39454F48c71A65d</a
+                ></code
               >
             </li>
+            <li>
+              Its treasury: <code translate="no"><a class="treasury">…</a></code>
+            </li>
           </ul>
-          <h3>The two calls</h3>
+          <h3>Its code</h3>
+          <p>
+            The page checks that the code at Carbon Impact's address has the hash
+            <code translate="no">0x0d67cd335e3ae9cde256cf399f819a3ea2b9c248b0336840a3b20a2ee82c192e</code>. Its source
+            is in <a href="https://github.com/hydrexfi/hydrex-periphery">Hydrex's repository</a>.
+          </p>
+          <h3>The call</h3>
           <p>
             Joining is <code translate="no">setConduitApproval(conduit, tokenId, true)</code> on the VotingEscrow, with
-            Carbon Impact or AutoMaxi as the conduit; leaving is the same with <code>false</code>. The review shows each
+            Carbon Impact's address as the conduit; leaving is the same with <code>false</code>. The review shows each
             call, as your wallet will, before it asks.
           </p>
           <h3>What the page checks</h3>
           <p>Before it lets anyone join, and every hour while it is open, the page checks on Base that:</p>
-          <ul>
-            <li>the RPC it reads from serves Base, so that what it shows is Base's;</li>
-            <li>each automation runs the code this page knows, so that it does what this page says;</li>
-            <li>
-              each points to Hydrex's VotingEscrow and Voter, and Carbon Impact pays in kVCM, while AutoMaxi's code
-              fixes how it pays;
+          <ul class="checks">
+            <li data-check="chain">the RPC it reads from serves Base, so that what it shows is Base's;</li>
+            <li data-check="code">Carbon Impact runs the code this page knows, so that it does what this page says;</li>
+            <li data-check="contracts">it points to Hydrex's VotingEscrow and Voter;</li>
+            <li data-check="token">it pays in kVCM;</li>
+            <li data-check="approvals">
+              joining approves voting and claiming only, as it did when this page was written;
             </li>
-            <li>joining approves voting and claiming only, as it did when this page was written;</li>
+            <li data-check="upgrade">Hydrex has not upgraded its VotingEscrow;</li>
+            <li data-check="logic">and the VotingEscrow's approval logic runs the code this page knows.</li>
+          </ul>
+          <p>If a check fails, joining stays off, and the page marks it here. Leaving still works.</p>
+          <h3>That nothing was transferred</h3>
+          <p>
+            On Basescan, a join or a leave shows no token transfers, and the VotingEscrow still lists the account as
+            yours.
+          </p>
+          <h3>Leaving without this page</h3>
+          <p>
+            Leaving is one call on Hydrex's VotingEscrow, with Carbon Impact's address and false, which any contract
+            interface, such as Basescan's, can make.
+          </p>
+          <h3>For co-signers</h3>
+          <p>
+            A Safe transaction from this page calls Hydrex's VotingEscrow once per account. With true and Carbon
+            Impact's address, the account joins: Carbon Impact can claim its rewards at once, unclaimed ones included,
+            and votes with it from the next epoch, and it pays out to the Safe, or to the payout address set for it,
+            less the share it retires. With false, the account leaves Carbon Impact, or, with another automation's
+            address, that automation. Nothing is transferred, and the accounts stay in the Safe. In Safe{Wallet}, check
+            that each call goes to the VotingEscrow above and for accounts the Safe holds, and that each call with true
+            has the conduit above.
+          </p>
+        </details>
+      </div>
+
+      <div class="view product" data-view="product" data-kind="automaxi" data-title="AutoMaxi · metaDEX Café" hidden>
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#app">App</a> ›</nav>
+        <h1 tabindex="-1">AutoMaxi</h1>
+        <p class="automaxi-absent notice" hidden>
+          AutoMaxi is not on Base yet. Its address is known in advance: once there is code there, and it is the code
+          this page knows, you can join it here.
+        </p>
+        <p class="state">
+          <span class="state-normal"
+            ><span class="shape idle automaxi-shape" aria-hidden="true"></span><b class="automaxi-state">…</b
+            ><span class="automaxi-voted-line" hidden> · voted <time class="automaxi-voted"></time></span></span
+          ><span class="state-failed" hidden
+            ><span class="shape failed" aria-hidden="true"></span><b>Checks failed:</b> joining off</span
+          >
+        </p>
+        <p class="notice checks-failed" data-kind="automaxi" hidden>
+          <span class="shape failed" aria-hidden="true"></span>Joining AutoMaxi is off: this page's checks of it failed.
+          Leaving works. <a href="#hydrex/automaxi/check">Which check failed</a>
+        </p>
+        <p class="lead">
+          It votes with your accounts for the pools it expects to earn the most bribes, and pays you what they earn, in
+          the tokens earned, less 1%. Nobody controls it.
+        </p>
+        <p>
+          Your account stays in your wallet. Leave with one call, at any time: claims through it stop at once, and your
+          votes come back at the next epoch, <time class="next-epoch">on Thursday at 00:00 UTC</time>.
+        </p>
+        <div data-needs="automaxi" hidden>
+          <div class="wallet-slot"></div>
+          <p class="accounts-reading" role="status" hidden>Reading the accounts…</p>
+          <div class="mine" hidden>
+            <p class="mine-none" hidden>None of this wallet's accounts is in AutoMaxi or can join it.</p>
+            <section class="group" data-group="in:automaxi" aria-labelledby="mine-automaxi" hidden>
+              <h2 id="mine-automaxi">Your accounts in it</h2>
+              <ul class="accounts"></ul>
+            </section>
+            <section class="group" data-group="can:automaxi" aria-labelledby="can-automaxi" hidden>
+              <h2 id="can-automaxi">Your accounts that can join</h2>
+              <ul class="accounts"></ul>
+              <p class="pick-hint">Tick the accounts to join with.</p>
+              <p class="buttons">
+                <button type="button" data-action="join" data-automation="automaxi">Join AutoMaxi</button>
+              </p>
+            </section>
+          </div>
+        </div>
+
+        <h2>Last epoch</h2>
+        <p><span class="record-when"></span><span class="record">…</span></p>
+
+        <h2>Fee facts</h2>
+        <p>Its code fixes all six, and the page checks its code.</p>
+        <dl class="fee-facts">
+          <div>
+            <dt>Taken</dt>
+            <dd>1% of each claim</dd>
+          </div>
+          <div>
+            <dt>The most it can become</dt>
+            <dd>1%, fixed in its code</dd>
+          </div>
+          <div>
+            <dt>Goes to</dt>
+            <dd>
+              Its treasury,
+              <a href="https://basescan.org/address/0x450c72de8c0079B49AcedF294a13011bd09D125B">a 2-of-3 Safe</a>
+            </dd>
+          </div>
+          <div>
+            <dt>When</dt>
+            <dd>Each claim</dd>
+          </div>
+          <div>
+            <dt>Other costs</dt>
+            <dd>None: it pays in the tokens earned, unswapped, and the claims cost you no gas</dd>
+          </div>
+          <div>
+            <dt>Who can change it</dt>
+            <dd>Nobody. A change means a new deployment, and owners joining again.</dd>
+          </div>
+        </dl>
+
+        <details class="fold" data-section="record">
+          <summary>Against all of Hydrex</summary>
+          <p class="record-waiting">Last epoch's figures are being read from Base.</p>
+          <p class="record-none" hidden>No record yet: it had no votes last epoch. The page shows no projection.</p>
+          <div class="record-found" hidden>
+            <p>
+              What its votes earned last epoch, read from Hydrex's reward contracts, and what all of Hydrex's Earning
+              Power earned on average, at the same prices.
+            </p>
+            <div class="scroll">
+              <table class="earnings">
+                <thead>
+                  <tr>
+                    <td></td>
+                    <th scope="col">AutoMaxi</th>
+                    <th scope="col">All votes on Hydrex</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Earning Power</th>
+                    <td class="ours earning-power">…</td>
+                    <td class="all earning-power">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Pools voted for</th>
+                    <td class="ours pools">…</td>
+                    <td class="all pools">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">What the votes earned</th>
+                    <td class="ours earned">…</td>
+                    <td class="all earned">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Of which fees</th>
+                    <td class="ours fees">…</td>
+                    <td class="all fees">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Of which incentives</th>
+                    <td class="ours incentives">…</td>
+                    <td class="all incentives">…</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Per 1,000 Earning Power</th>
+                    <td class="ours per-power">…</td>
+                    <td class="all per-power">…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="all-status small" role="status" hidden>Reading every pool's rewards…</p>
+            <p class="all-failed notice" role="alert" hidden>
+              Reading all of Hydrex failed. <button type="button" class="compare-again secondary">Try again</button>
+            </p>
+            <p class="versus" hidden></p>
+            <p class="small">
+              Earned by its votes, not paid to you: it takes 1% of each claim, and tokens worth too little to claim may
+              be left. <a href="#about/figures">How the figures are read</a>
+            </p>
+            <h3>The pools it voted for</h3>
+            <div class="scroll">
+              <table class="earned-pools">
+                <thead>
+                  <tr>
+                    <th scope="col">Pool</th>
+                    <th scope="col">Share of its Earning Power</th>
+                    <th scope="col">Earned</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+
+        <details class="fold" data-section="joining">
+          <summary>Joining and leaving</summary>
+          <p>
+            Joining is one call per account. It approves AutoMaxi for two things: voting with the account, and claiming
+            its rewards, which it pays to your own address. There is no payout address to change.
+          </p>
+          <ul>
             <li>
-              Hydrex's VotingEscrow and its approval logic run the code this page knows, since an upgrade could change
-              what an approval allows.
+              <b>Claims move at once.</b> While you are in, anyone can claim your rewards through AutoMaxi, at any time,
+              even those your own votes earned, and the fee is the same whoever calls. They are claimed for you right
+              after each epoch ends. Rewards nobody has claimed through it yet, you can still claim on Hydrex yourself.
+            </li>
+            <li>
+              <b>Votes move at the next epoch,</b> <time class="next-epoch">on Thursday at 00:00 UTC</time>. From then,
+              you can't vote with the account yourself, until the epoch after it leaves. Join on Wednesday at 23:00 UTC,
+              and the votes move an hour later; join on Thursday at 10:00 UTC, and almost a week later.
+            </li>
+            <li>
+              <b>Nothing is transferred.</b> The account and its HYDX stay in your wallet: neither approval lets
+              AutoMaxi transfer them.
+            </li>
+            <li>
+              <b>Leaving</b> is the same call with false, and works even if this page's checks fail. Claims through it
+              stop at once: what nobody has claimed through it is yours to claim on Hydrex. Your votes come back at the
+              next epoch; until then they count for AutoMaxi.
             </li>
           </ul>
+        </details>
+
+        <details class="fold" data-section="control">
+          <summary>Who controls what</summary>
+          <ul>
+            <li>
+              Nobody controls AutoMaxi: it has no owner, no settings and no upgrade path. A new fee, treasury or price
+              feed means a new deployment, and owners joining again.
+            </li>
+            <li>
+              Hydrex can upgrade its Voter, VotingEscrow and reward contracts, so AutoMaxi is only as safe as they are.
+            </li>
+            <li>
+              The owner of Hydrex's reward contracts can deposit a bribe, win the vote with it and take it back, or take
+              any bribe's tokens.
+            </li>
+          </ul>
+        </details>
+
+        <details class="fold" data-section="votes">
+          <summary>How it picks its votes</summary>
           <p>
-            If a check fails, joining that automation stays off, and the page says which. Leaving still works. Until
-            there is code at AutoMaxi's address, the page leaves it out.
+            Anyone can propose its votes. It takes one only if it expects it to earn at least $1 more in bribes,
+            counting WETH, cbBTC, USDC and EURC at Chainlink's prices, and some trading fees in other tokens at their
+            pool's average price over the last half hour. A week without a vote earns nothing.
+          </p>
+          <ul>
+            <li>
+              Chainlink's prices only steer its votes. If a feed goes stale, its token counts for nothing, and a worse
+              vote can win while it lasts.
+            </li>
+            <li>
+              Hydrex's pools price the trading fees in other tokens, and they too only steer its votes. Someone who
+              moves a thin pool's price, or Hydrex, which can change how its pools report prices, can make a worse vote
+              win. A pool's fees in other tokens never count for more than its fees in the four tokens above.
+            </li>
+          </ul>
+        </details>
+
+        <details class="fold" data-section="check">
+          <summary>Check it</summary>
+          <h3>The contracts</h3>
+          <ul>
+            <li>
+              AutoMaxi, a conduit:
+              <code translate="no"
+                ><a href="https://basescan.org/address/0x692c323B425A9DfeebE302F56168a7798D93EAC5"
+                  >0x692c323B425A9DfeebE302F56168a7798D93EAC5</a
+                ></code
+              >
+            </li>
+            <li>
+              Hydrex's VotingEscrow, which holds the accounts:
+              <code translate="no"
+                ><a href="https://basescan.org/address/0x25B2ED7149fb8A05f6eF9407d9c8F878f59cd1e1"
+                  >0x25B2ED7149fb8A05f6eF9407d9c8F878f59cd1e1</a
+                ></code
+              >
+            </li>
+            <li>
+              Hydrex's Voter, which counts the votes:
+              <code translate="no"
+                ><a href="https://basescan.org/address/0xc69E3eF39E3fFBcE2A1c570f8d3ADF76909ef17b"
+                  >0xc69E3eF39E3fFBcE2A1c570f8d3ADF76909ef17b</a
+                ></code
+              >
+            </li>
+            <li>
+              Its treasury, a 2-of-3 Safe:
+              <code translate="no"
+                ><a href="https://basescan.org/address/0x450c72de8c0079B49AcedF294a13011bd09D125B"
+                  >0x450c72de8c0079B49AcedF294a13011bd09D125B</a
+                ></code
+              >
+            </li>
+          </ul>
+          <h3>Its code</h3>
+          <p>
+            The page checks that the code at AutoMaxi's address has the hash
+            <code translate="no">0x4872932431e0d175fb1213e9ffec2b8f0ebd1d9d490643d6df5b2c6d0b379847</code>. Its source
+            is verified, with an exact match, on
+            <a href="https://basescan.org/address/0x692c323B425A9DfeebE302F56168a7798D93EAC5#code">Basescan</a> and on
+            <a href="https://repo.sourcify.dev/8453/0x692c323B425A9DfeebE302F56168a7798D93EAC5">Sourcify</a>.
+          </p>
+          <h3>The call</h3>
+          <p>
+            Joining is <code translate="no">setConduitApproval(conduit, tokenId, true)</code> on the VotingEscrow, with
+            AutoMaxi's address as the conduit; leaving is the same with <code>false</code>. The review shows each call,
+            as your wallet will, before it asks.
+          </p>
+          <h3>What the page checks</h3>
+          <p>Before it lets anyone join, and every hour while it is open, the page checks on Base that:</p>
+          <ul class="checks">
+            <li data-check="chain">the RPC it reads from serves Base, so that what it shows is Base's;</li>
+            <li data-check="automaxi-code">
+              AutoMaxi runs the code this page knows, so that it does what this page says;
+            </li>
+            <li data-check="automaxi-contracts">it points to Hydrex's VotingEscrow and Voter;</li>
+            <li data-check="automaxi-approvals">
+              joining approves voting and claiming only, as it did when this page was written;
+            </li>
+            <li data-check="upgrade">Hydrex has not upgraded its VotingEscrow;</li>
+            <li data-check="logic">and the VotingEscrow's approval logic runs the code this page knows.</li>
+          </ul>
+          <p>
+            If a check fails, joining stays off, and the page marks it here. Leaving still works. Until there is code at
+            AutoMaxi's address, the page leaves it out.
           </p>
           <h3>That nothing was transferred</h3>
           <p>
             On Basescan, a join or a leave shows no token transfers, and the VotingEscrow still lists the account as
             yours.
           </p>
-          <h3>That this page is the one built from its source</h3>
+          <h3>Leaving without this page</h3>
           <p>
-            The build is reproducible: the version and commit in the footer give the same files on any machine, to
-            compare with the ones this address serves. Your browser also checks the page's script and stylesheet against
-            the hashes in the page before it runs them.
+            Leaving is one call on Hydrex's VotingEscrow, with AutoMaxi's address and false, which any contract
+            interface, such as Basescan's, can make.
           </p>
-          <h3>What it reads, and from where</h3>
+          <h3>For co-signers</h3>
           <p>
-            Everything comes from Base, through public RPCs: <code translate="no">mainnet.base.org</code>,
-            <code translate="no">base.drpc.org</code> and <code translate="no">base-rpc.publicnode.com</code>. The page
-            has no server, stores nothing, and asks your wallet nothing until you pick it.
+            A Safe transaction from this page calls Hydrex's VotingEscrow once per account. With true and AutoMaxi's
+            address, the account joins: anyone can claim its rewards through AutoMaxi at once, which pays them to the
+            Safe, less 1%, and AutoMaxi votes with it from the next epoch. With false, the account leaves AutoMaxi, or,
+            with another automation's address, that automation. Nothing is transferred, and the accounts stay in the
+            Safe. In Safe{Wallet}, check that each call goes to the VotingEscrow above and for accounts the Safe holds,
+            and that each call with true has the conduit above.
           </p>
-        </section>
+        </details>
+      </div>
 
-        <section id="questions" aria-labelledby="questions-title">
-          <h2 id="questions-title">Questions</h2>
-          <details>
-            <summary>Can I still vote myself?</summary>
-            <p>
-              Not with an account in Carbon Impact: from the epoch after it joins, its votes count for Carbon Impact.
-              Leave, and you vote with it again from the next epoch. Accounts you keep out vote as before.
-            </p>
-          </details>
-          <details>
-            <summary>Can I put in only some of my accounts?</summary>
-            <p>Yes. Each account joins and leaves on its own, with its own call.</p>
-          </details>
-          <details>
-            <summary>What happens to rewards I have not claimed?</summary>
-            <p>
-              Carbon Impact can claim them from the moment an account joins, even those your own votes earned, and swaps
-              and retires them like the rest. To keep them as they are,
-              <a href="https://www.hydrex.fi/accounts">claim them on Hydrex</a> before you join.
-            </p>
-          </details>
-          <details>
-            <summary>What does it cost?</summary>
-            <p>
-              Carbon Impact retires <span class="retired-share">a share</span> of the rewards as carbon credits. Swaps
-              have their usual costs, and each account takes the gas of one transaction to join, and one to leave.
-            </p>
-          </details>
-          <details>
-            <summary>How much will I get?</summary>
-            <p>
-              The page cannot promise a payout. It shows <a href="#last-epoch">what the votes earned last epoch</a>, for
-              the automation and for each of your accounts, once the epoch has ended.
-            </p>
-          </details>
-          <details>
-            <summary>What carbon credits, and where can I see them?</summary>
-            <p>
-              Carbon Impact retires them through Klima, in the name "<bdi class="entity" translate="no">Hydrex</bdi>",
-              which is the same for every member. Each retirement is a transaction of the automation, on Basescan.
-              <a href="#carbon">The carbon credits</a>
-            </p>
-          </details>
-          <details>
-            <summary>Can a DAO join from a Safe?</summary>
-            <p>
-              Yes. In Safe{Wallet}, add <code translate="no">https://metadex.cafe/</code> as a custom Safe App. The page
-              proposes one Safe transaction for all the accounts, and the Safe's owners sign it in Safe{Wallet}.
-              <a href="#for-co-signers">What to send your co-signers</a>
-            </p>
-          </details>
-          <details>
-            <summary>Is this page Hydrex's?</summary>
-            <p>
-              The automation is: its code is Hydrex's own, and Hydrex lists it as one of its automations. This page is a
-              way into it, and names no operator. What it shows is read from Base, so you need not trust it:
-              <a href="#verify">check it yourself</a>.
-            </p>
-          </details>
-          <details>
-            <summary>Why does Hydrex show other numbers?</summary>
-            <p>Hydrex's weekly rewards leave out the incentives, which this page counts with the fees.</p>
-          </details>
-          <details>
-            <summary>What if this page goes away?</summary>
-            <p>
-              Your accounts stay as they are, and Carbon Impact goes on. Leaving is one call on Hydrex's VotingEscrow,
-              which any interface that can call a contract, such as Basescan's, can make.
-            </p>
-          </details>
-        </section>
-
-        <section id="words" aria-labelledby="words-title">
-          <h2 id="words-title">Words</h2>
-          <dl class="words">
-            <dt>Account</dt>
-            <dd>
-              A Hydrex account: HYDX locked in Hydrex's VotingEscrow, which gives it Earning Power. It is a token in
-              your wallet.
-            </dd>
-            <dt>Flex Account</dt>
-            <dd>An account whose lock ends, or rolls on so that it never does.</dd>
-            <dt>Protocol Account</dt>
-            <dd>An account locked for good, as from oHYDX or rebases.</dd>
-            <dt>Earning Power</dt>
-            <dd>An account's weight in Hydrex's votes. Hydrex shows it as 1.3 times the votes the contracts count.</dd>
-            <dt>Epoch</dt>
-            <dd>
-              Hydrex's week, from Thursday at 00:00 UTC. Votes count for one epoch, and rewards are paid by epoch.
-            </dd>
-            <dt>The flip</dt>
-            <dd>The moment one epoch ends and the next starts.</dd>
-            <dt>Automation</dt>
-            <dd>
-              A contract that votes and claims for the accounts that approve it. Hydrex's contracts call it a conduit.
-            </dd>
-            <dt>Admin key</dt>
-            <dd>
-              The key that can change an automation's settings. <a href="#who-controls-what">Who controls what</a>
-            </dd>
-            <dt>Payout address</dt>
-            <dd>Where Carbon Impact sends an owner's payouts: the owner's own address, unless changed.</dd>
-            <dt>kVCM</dt>
-            <dd>Klima Protocol's token, backed by carbon credits, in which Carbon Impact pays.</dd>
-            <dt>Carbon credit</dt>
-            <dd>A certificate for a tonne of carbon dioxide kept out of the air, or taken from it.</dd>
-            <dt>Retire</dt>
-            <dd>To use a carbon credit up for good, so that no one can sell or claim it again.</dd>
+      <div class="view" data-view="position" data-title="Account · metaDEX Café" hidden>
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#app">App</a> ›</nav>
+        <h1 tabindex="-1"><bdi class="position-name" translate="no">Account</bdi> <span class="position-id"></span></h1>
+        <p class="position-reading" role="status">Reading the account from Base…</p>
+        <p class="position-failed notice" role="alert" hidden>
+          The account could not be read from Base.
+          <button type="button" class="position-again secondary">Try again</button>
+        </p>
+        <p class="position-none" hidden>Hydrex has no account with this number.</p>
+        <div class="position-found" hidden>
+          <p class="position-status"></p>
+          <dl class="key-facts">
+            <div>
+              <dt>Lock</dt>
+              <dd class="position-kind"></dd>
+            </div>
+            <div>
+              <dt>Earning Power</dt>
+              <dd class="position-votes"></dd>
+            </div>
+            <div class="position-earned-row" hidden>
+              <dt>Last epoch</dt>
+              <dd>Its votes earned <span class="position-earned"></span></dd>
+            </div>
+            <div class="position-owner-row" hidden>
+              <dt>Owner</dt>
+              <dd>
+                <code translate="no"><a class="position-owner"></a></code>
+              </dd>
+            </div>
           </dl>
+          <section class="position-actions" aria-label="What you can do with it" hidden>
+            <p class="buttons">
+              <button type="button" data-action="join" data-automation="carbon-impact">Join Carbon Impact</button>
+              <button type="button" data-action="join" data-automation="automaxi">Join AutoMaxi</button>
+              <button type="button" data-action="self" class="secondary">Leave</button>
+            </p>
+          </section>
+          <div class="position-stopped" hidden>
+            <ul>
+              <li>Its votes count for nothing: Hydrex counts a vote only in the epoch it is cast.</li>
+              <li>It has earned nothing from voting since <time class="position-since"></time>.</li>
+              <li>
+                <span data-own="You can't" data-theirs="Its owner can't"></span> vote with it while that automation
+                holds its votes.
+              </li>
+            </ul>
+            <p
+              data-own="What the automation left unclaimed is yours: to keep it, claim it on Hydrex before you join another."
+              data-theirs="What the automation left unclaimed is its owner's to claim on Hydrex."
+            ></p>
+            <p class="buttons" data-own-only>
+              <a class="button secondary" href="https://www.hydrex.fi/accounts" target="_blank" rel="noopener"
+                >Claim on Hydrex <span aria-hidden="true">↗</span></a
+              >
+            </p>
+          </div>
+          <p class="position-underway notice" hidden>
+            A payout is under way: it has not reached this account yet. A payout takes up to half a day.
+          </p>
+          <section class="position-payouts" aria-labelledby="position-payouts-title" hidden>
+            <h2 id="position-payouts-title">Its last payout</h2>
+            <p class="receipts-reading" role="status">Reading its payouts from Base…</p>
+            <p class="receipts-failed notice" hidden>
+              Its payouts could not be read from Base.
+              <button type="button" class="receipts-again secondary">Read them again</button>
+            </p>
+            <div class="receipts-found standings" hidden></div>
+          </section>
+          <details class="position-payout" hidden>
+            <summary>Payout address</summary>
+            <p>
+              Carbon Impact pays <code translate="no"><a class="payout-owner"></a></code> at
+              <code translate="no"><a class="payout-to"></a></code><span class="payout-itself">, its own address</span>.
+              The one address takes the payouts of all the owner's accounts in Carbon Impact. Only Carbon Impact's admin
+              key, or a call from the owner's address made elsewhere, can change it.
+            </p>
+          </details>
+        </div>
+      </div>
+
+      <div class="view" data-view="about" data-title="About · metaDEX Café" hidden>
+        <h1 tabindex="-1">About</h1>
+        <p class="lead">
+          metaDEX Café is a page for joining and leaving automations with your Hydrex accounts. It is independent: not
+          Hydrex's, not Dromos's. It names no operator, and asks you to trust no one: what it shows is read from Base.
+        </p>
+        <section aria-labelledby="about-address">
+          <h2 id="about-address">The official address</h2>
+          <p>
+            <code translate="no">https://metadex.cafe/</code>. Anyone can host a changed copy, for example one that
+            approves another conduit, so use this address, and read what your wallet shows.
+          </p>
+        </section>
+        <section aria-labelledby="about-not">
+          <h2 id="about-not">What it does not do</h2>
+          <p>
+            It has no server and stores nothing. It asks your wallet nothing until you pick it, and then only for
+            transactions you confirm, never for signatures. Everything it shows comes from Base, through public RPCs:
+            <code translate="no">mainnet.base.org</code>, <code translate="no">base.drpc.org</code> and
+            <code translate="no">base-rpc.publicnode.com</code>.
+          </p>
+        </section>
+        <section data-section="check" aria-labelledby="about-check">
+          <h2 id="about-check" tabindex="-1">Check this page</h2>
+          <p>
+            This is version %VERSION%. Your browser checks the page's script and stylesheet against hashes in the page
+            before it runs them, and refuses any that differ.
+          </p>
+        </section>
+        <section data-section="safe" aria-labelledby="about-safe">
+          <h2 id="about-safe" tabindex="-1">From a Safe</h2>
+          <p>
+            In Safe{Wallet}, add <code translate="no">https://metadex.cafe/</code> as a custom Safe App. The page
+            proposes one Safe transaction for all the accounts, and the Safe's owners sign it in Safe{Wallet}. Each
+            automation's "Check it" says what its calls do, for the co-signers.
+          </p>
+        </section>
+        <section aria-labelledby="about-gone">
+          <h2 id="about-gone">If this page goes away</h2>
+          <p>
+            Your accounts stay as they are, and the automations go on. Leaving is one call on Hydrex's VotingEscrow,
+            which any contract interface, such as Basescan's, can make.
+          </p>
+        </section>
+        <section data-section="figures" aria-labelledby="about-figures">
+          <h2 id="about-figures" tabindex="-1">How the figures are read</h2>
+          <ul>
+            <li>
+              <b>Prices:</b> each token's average over the half hour before the epoch ended, in the deepest of Hydrex's
+              pools that pairs it with USDC, WETH or cbBTC; WETH and cbBTC at Chainlink's ETH / USD and BTC / USD feeds;
+              USDC as a dollar. A pool counts only if it holds at least $250 of each of its tokens, and ten times the
+              value it prices. A token without one counts for nothing. Dollars are marked ≈.
+            </li>
+            <li><b>Earning Power</b> is shown as on Hydrex: 1.3 times the votes the contracts count.</li>
+            <li>
+              <b>Fees and incentives:</b> what votes earned counts both. Hydrex's own weekly figures leave out the
+              incentives, so they are lower.
+            </li>
+            <li>
+              <b>Compared with the average,</b> not with the best pool: a pool's yield falls as votes move to it, and
+              the average is what Earning Power actually earned. One epoch is noisy, as incentives change every week.
+            </li>
+            <li>
+              <b>Paid:</b> an epoch counts as paid once claims since it ended took more than half of what its rewards
+              were worth, so that a claim of a few small rewards does not. A receipt's dollars are at the prices of the
+              epoch's end before the payout.
+            </li>
+            <li>
+              <b>What waits to be claimed</b> is a floor: the page reads an account's rewards in the pools its
+              automation voted for last epoch, and no others.
+            </li>
+          </ul>
         </section>
       </div>
     </main>
 
     <footer>
       <p>Official address: <code translate="no">https://metadex.cafe/</code></p>
-      <p>
-        Contracts: <a href="https://basescan.org/address/0xdE91885cF35ac57DF0c4A75c16862127dBe8317c">Carbon Impact</a>,
-        <a href="https://basescan.org/token/0x00fBAC94Fec8D4089d3fe979F39454F48c71A65d">kVCM</a>,
-        <a href="https://basescan.org/address/0x25B2ED7149fb8A05f6eF9407d9c8F878f59cd1e1">Hydrex's VotingEscrow</a>
-        and <a href="https://basescan.org/address/0xc69E3eF39E3fFBcE2A1c570f8d3ADF76909ef17b">Hydrex's Voter</a>. Code:
-        <a href="https://github.com/hydrexfi/hydrex-periphery">the automation's source</a>. Hydrex:
-        <a href="https://www.hydrex.fi/">hydrex.fi</a>. Klima Protocol:
-        <a href="https://www.klimaprotocol.com/">klimaprotocol.com</a>.
-      </p>
-      <p>
-        Version %VERSION%, commit <code translate="no">%COMMIT%</code>. <a href="#verify">Check this page</a> ·
-        <a href="#questions">Questions</a>
-      </p>
+      <p><a href="#about/check">Version %VERSION%</a> · <a href="#about">About</a></p>
     </footer>
 
     <dialog id="review" aria-labelledby="review-title">
@@ -1569,82 +1076,48 @@
       </div>
     </dialog>
 
+    <template id="wallet-picker">
+      <div class="wallets">
+        <p class="buttons wallet-buttons"></p>
+        <p>Pick your wallet to see your Hydrex accounts. It is asked nothing else until you confirm a change.</p>
+        <p class="connecting" role="status" hidden>
+          Waiting for <bdi class="connecting-wallet" translate="no"></bdi> to answer…
+        </p>
+        <div class="no-wallet notice" role="alert" hidden>
+          <p>No wallet was found in this browser. On a phone, open this page in your wallet app:</p>
+          <p class="buttons">
+            <a class="button secondary" href="https://go.cb-w.com/dapp?cb_url=https%3A%2F%2Fmetadex.cafe%2F%23app"
+              >Coinbase Wallet</a
+            >
+            <a class="button secondary" href="https://link.metamask.io/dapp/metadex.cafe/#app">MetaMask</a>
+          </p>
+          <p>On a computer, install a browser wallet, then reload this page.</p>
+        </div>
+        <p class="wallet-failed notice" role="alert" hidden>
+          <bdi class="failed-wallet" translate="no"></bdi> did not connect. Try again, or use another wallet.
+        </p>
+      </div>
+    </template>
+    <template id="wallet">
+      <button type="button" class="secondary"><img alt="" hidden /> <bdi class="name" translate="no"></bdi></button>
+    </template>
     <template id="account">
       <li>
         <label>
           <input type="checkbox" class="pick" hidden disabled />
           <span class="about">
-            <b><bdi class="name" translate="no"></bdi> <code class="id" translate="no"></code></b><br /><span
-              class="kind"
-            ></span
-            >, <span class="votes"></span> Earning Power<br /><span class="status"></span
-            ><span class="earned" hidden><br />Last epoch, its votes earned <span class="earned-usd"></span>.</span>
+            <a class="account-link"
+              ><b><bdi class="name" translate="no"></bdi> <span class="id"></span></b></a
+            ><br /><span class="small"
+              ><span class="votes"></span> Earning Power<span class="earned" hidden>
+                · <span class="earned-usd"></span> last epoch</span
+              ></span
+            ><span class="status-line"><br /><span class="status"></span></span
+            ><span class="late" hidden
+              ><br /><span class="shape stopped" aria-hidden="true"></span><strong>Payout late.</strong></span
+            >
           </span>
         </label>
-      </li>
-    </template>
-    <template id="wallet">
-      <button type="button" class="secondary"><img alt="" hidden /> <bdi class="name" translate="no"></bdi></button>
-    </template>
-    <dialog id="choose" aria-labelledby="choose-title">
-      <h2 id="choose-title" tabindex="-1">Choose for <span class="choose-which"></span></h2>
-      <p class="small">
-        Last epoch's figures, at the prices of its flip. A week ahead, at the same rate, is an estimate, not a promise.
-        The gas is for every call the change needs, at today's price.
-      </p>
-      <ul class="options"></ul>
-      <details class="compare">
-        <summary>Compare them</summary>
-        <div class="scroll">
-          <table>
-            <thead>
-              <tr class="compare-names">
-                <td></td>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="compare-pays">
-                <th scope="row">Pays you in</th>
-              </tr>
-              <tr class="compare-taken">
-                <th scope="row">Taken</th>
-              </tr>
-              <tr class="compare-most">
-                <th scope="row">The most it can take</th>
-              </tr>
-              <tr class="compare-leaving">
-                <th scope="row">Leaving</th>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </details>
-      <div class="foot">
-        <p class="buttons"><button type="button" class="secondary choose-close">Close</button></p>
-      </div>
-    </dialog>
-
-    <template id="option">
-      <li class="slip option">
-        <h3 class="option-name"></h3>
-        <p class="option-now small" hidden>
-          What <span data-one="this account has" data-many="these accounts have"></span> now.
-        </p>
-        <dl class="lines">
-          <div>
-            <dt>Last epoch, per 1,000 Earning Power</dt>
-            <dd class="value option-per-power"></dd>
-          </div>
-          <div>
-            <dt>A week, for <span data-one="this account" data-many="these accounts"></span></dt>
-            <dd class="value option-week"></dd>
-          </div>
-          <div>
-            <dt>Gas to change</dt>
-            <dd class="value option-gas"></dd>
-          </div>
-        </dl>
-        <p class="buttons"><button type="button" class="option-pick"></button></p>
       </li>
     </template>
     <template id="step">
@@ -1688,7 +1161,7 @@
         </dl>
         <div class="slip-foot">
           <p class="slip-note" hidden></p>
-          <p class="check"><a href="#verify">How to check these calls</a> <span class="label">On Base</span></p>
+          <p class="check"><a class="check-calls">How to check these calls</a> <span class="label">On Base</span></p>
         </div>
       </li>
     </template>
@@ -1700,25 +1173,17 @@
           <span data-one="this account has" data-many="these accounts have"></span> not claimed yet, even those your own
           votes earned,</strong
         >
-        from the moment <span data-one="it joins" data-many="they join"></span>, and this epoch's once the epoch ends.
-        It swaps and retires them like the rest.
+        from the moment <span data-one="it joins" data-many="they join"></span>, and swaps and retires them like the
+        rest. To keep them as they are, claim them on Hydrex first, then come back.
       </p>
-      <p>
-        To keep them as they are, claim them on Hydrex first, then come back.
-        <a href="#unclaimed-rewards">More on unclaimed rewards</a>
-      </p>
-      <p class="from-stopped" hidden>
-        <span class="stopped-which"></span>: what the automation left unclaimed before it stopped can still be claimed
-        on Hydrex. Nothing has accrued since.
-      </p>
-      <p class="from-running" hidden>Joining also takes <span class="running-which"></span>.</p>
       <p class="buttons">
         <a class="button secondary" href="https://www.hydrex.fi/accounts" target="_blank" rel="noopener"
           >Claim on Hydrex <span aria-hidden="true">↗</span></a
         >
       </p>
-    </template>
-    <template id="join-changes">
+      <p class="estimate">
+        <span class="estimate-week">Reading last epoch's figures…</span> <span class="estimate-gas"></span>
+      </p>
       <p>For <span class="which"></span>:</p>
       <ol class="timeline">
         <li><b>Now.</b> Carbon Impact can claim <span data-one="its" data-many="their"></span> rewards.</li>
@@ -1727,17 +1192,23 @@
           until the epoch after <span data-one="it leaves" data-many="they leave"></span>.
         </li>
         <li>
-          <b>Right after each epoch ends.</b> It retires <span class="retired-share"></span> of the rewards as carbon
-          credits, in the name "<bdi class="entity" translate="no"></bdi>", and sends the rest to your payout address.
+          <b>Right after each epoch ends.</b> It retires its share of the rewards as carbon credits, in the name "<bdi
+            class="entity"
+            translate="no"
+          ></bdi
+          >", and sends the rest to your payout address, in kVCM.
         </li>
       </ol>
       <p>
-        Your HYDX stays in your <span data-one="account" data-many="accounts"></span>, and
-        <span data-one="it stays" data-many="they stay"></span> in your wallet. One admin key controls Carbon Impact's
-        settings: it can change the share retired (up to 100%), the payout tokens, the swap routers and your payout
-        address. <a href="#who-controls-what">Who controls what</a> ·
-        <a href="#timing">When things happen</a>
+        It retires <span class="retired"></span> of the rewards, and takes a fee of <span class="fee"></span>. One admin
+        key can raise them to 100% and <span class="max-fee"></span>, and change the payout tokens, the swap routers and
+        your payout address. <a href="#hydrex/carbon-impact/control">Who controls what</a>
       </p>
+      <p class="from-stopped" hidden>
+        <span class="stopped-which"></span>: what the automation left unclaimed before it stopped can still be claimed
+        on Hydrex. Nothing has accrued since.
+      </p>
+      <p class="from-running" hidden>Joining also takes <span class="running-which"></span>.</p>
     </template>
     <template id="join-done">
       <p>
@@ -1753,24 +1224,16 @@
           claimed yet through AutoMaxi, even those your own votes earned,</strong
         >
         from the moment <span data-one="it joins" data-many="they join"></span>. AutoMaxi pays them to you, in the
-        tokens earned, less its fee of 1%.
+        tokens earned, less its fee of 1%. To keep them whole, claim them on Hydrex first, then come back.
       </p>
-      <p>
-        To keep them whole, claim them on Hydrex first, then come back.
-        <a href="#unclaimed-rewards">More on unclaimed rewards</a>
-      </p>
-      <p class="from-stopped" hidden>
-        <span class="stopped-which"></span>: what the automation left unclaimed before it stopped can still be claimed
-        on Hydrex. Nothing has accrued since.
-      </p>
-      <p class="from-running" hidden>Joining also takes <span class="running-which"></span>.</p>
       <p class="buttons">
         <a class="button secondary" href="https://www.hydrex.fi/accounts" target="_blank" rel="noopener"
           >Claim on Hydrex <span aria-hidden="true">↗</span></a
         >
       </p>
-    </template>
-    <template id="automaxi-join-changes">
+      <p class="estimate">
+        <span class="estimate-week">Reading last epoch's figures…</span> <span class="estimate-gas"></span>
+      </p>
       <p>For <span class="which"></span>:</p>
       <ol class="timeline">
         <li>
@@ -1779,21 +1242,19 @@
         </li>
         <li>
           <b><time class="next"></time>.</b> AutoMaxi votes with <span data-one="it" data-many="them"></span>, and you
-          can't, until the epoch after <span data-one="it leaves" data-many="they leave"></span>. Anyone can propose its
-          votes. It takes one only if it expects it to earn at least $1 more in bribes, counting WETH, cbBTC, USDC and
-          EURC at Chainlink's prices. A week without a vote earns nothing.
+          can't, until the epoch after <span data-one="it leaves" data-many="they leave"></span>.
         </li>
         <li>
           <b>After each epoch ends.</b> AutoMaxi claims the rewards, and sends them to your address, in the tokens
           earned, less 1%.
         </li>
       </ol>
-      <p>
-        Your HYDX stays in your <span data-one="account" data-many="accounts"></span>, and
-        <span data-one="it stays" data-many="they stay"></span> in your wallet. Nobody controls AutoMaxi: it has no
-        owner, no settings and no upgrade path.
+      <p>It takes 1% of each claim. Nobody can change that. <a href="#hydrex/automaxi/control">Who controls what</a></p>
+      <p class="from-stopped" hidden>
+        <span class="stopped-which"></span>: what the automation left unclaimed before it stopped can still be claimed
+        on Hydrex. Nothing has accrued since.
       </p>
-      <div class="fee-facts-copy"></div>
+      <p class="from-running" hidden>Joining also takes <span class="running-which"></span>.</p>
     </template>
     <template id="automaxi-join-done">
       <p>
@@ -1805,16 +1266,37 @@
     <template id="proposed">
       <p>
         To show the Safe's other owners what it does, send them
-        <a href="#for-co-signers"><code translate="no">https://metadex.cafe/#for-co-signers</code></a
-        >.
+        <a class="co-signers"><code class="co-signers-address" translate="no"></code></a>.
       </p>
     </template>
+    <template id="leave-effects">
+      <ol class="timeline">
+        <li>
+          <b>Now.</b> <span class="automations"></span> can no longer claim the rewards of <span class="which"></span>.
+          What it has not claimed is yours to claim on Hydrex.
+        </li>
+        <li>
+          <b><time class="next"></time>.</b> Your votes come back to you: vote each week on Hydrex, or choose another
+          automation. Until then they count for <span class="automations"></span>.
+        </li>
+      </ol>
+      <p class="more-leaving-line"><a class="more-leaving">More on leaving</a></p>
+    </template>
+    <template id="leave-other-effects">
+      <ol class="timeline">
+        <li>
+          <b>Now.</b> <span class="automations"></span> can no longer claim the rewards of <span class="which"></span>.
+          What it left unclaimed is yours to claim on Hydrex.
+        </li>
+        <li>
+          <b><time class="next"></time>.</b> Your votes come back to you: vote with
+          <span data-one="it" data-many="them"></span> each week on Hydrex, or join an automation here.
+        </li>
+      </ol>
+    </template>
+
     <template id="standing">
       <article class="standing">
-        <h3>
-          <bdi class="standing-name" translate="no"></bdi> <code class="standing-id" translate="no"></code> ·
-          <span class="standing-automation"></span>
-        </h3>
         <ul class="states">
           <li class="standing-paid">
             <span class="shape running" aria-hidden="true"></span
@@ -1863,8 +1345,9 @@
           <li class="standing-moved unmarked" hidden>
             <span
               ><span class="standing-voter"></span> voted with it last epoch, but no longer holds its claims, so it
-              cannot claim what waits from those votes. You can claim it on Hydrex.</span
-            >
+              cannot claim what waits from those votes.
+              <span data-own="You can claim it on Hydrex." data-theirs="Its owner can claim it on Hydrex."></span
+            ></span>
           </li>
           <li class="standing-outside unmarked" hidden>
             <span
@@ -1911,11 +1394,12 @@
         </dl>
         <dl class="total">
           <div>
-            <dt>Paid to you</dt>
+            <dt data-own="Paid to you" data-theirs="Paid to its owner">Paid to you</dt>
             <dd class="value receipt-paid"></dd>
             <dd class="dollars receipt-paid-usd"></dd>
             <dd class="detail receipt-elsewhere" hidden>
-              At your payout address, <code translate="no"><a class="receipt-recipient"></a></code>
+              <span data-own="At your payout address," data-theirs="At its owner's payout address,"></span>
+              <code translate="no"><a class="receipt-recipient"></a></code>
             </dd>
           </div>
         </dl>
@@ -1971,89 +1455,64 @@
         <td class="usd"></td>
       </tr>
     </template>
-    <template id="leave-effects">
-      <ol class="timeline">
-        <li>
-          <b>Now.</b> <span class="automations"></span> can no longer claim the rewards of <span class="which"></span>.
-          What it has not claimed is yours to claim on Hydrex.
-        </li>
-        <li>
-          <b><time class="next"></time>.</b> Your votes come back to you: vote each week on Hydrex, or choose another
-          automation. Until then they count for <span class="automations"></span>.
-        </li>
-      </ol>
-      <p><a href="#leaving-at-any-time">More on leaving</a></p>
-    </template>
-    <template id="leave-other-effects">
-      <ol class="timeline">
-        <li>
-          <b>Now.</b> <span class="automations"></span> can no longer claim the rewards of <span class="which"></span>.
-          What it left unclaimed is yours to claim on Hydrex.
-        </li>
-        <li>
-          <b><time class="next"></time>.</b> Your votes come back to you: vote with
-          <span data-one="it" data-many="them"></span> each week on Hydrex, or join an automation here.
-        </li>
-      </ol>
-    </template>
 
+    <template id="check-failed"
+      ><span class="check-failed"><span class="shape failed" aria-hidden="true"></span><b>Failed:</b> </span></template
+    >
+
+    <!-- An account's status: what holds its votes and its claims, in words to its owner or about it. -->
     <template id="in">
       <span class="shape running" aria-hidden="true"></span
-      ><strong>In <bdi class="automation-name" translate="no"></bdi>.</strong> It votes with this account and claims its
-      rewards.
-    </template>
+      ><strong
+        >In <a class="automation-link"><bdi class="automation-name" translate="no"></bdi></a>.</strong
+      ></template
+    >
     <template id="joined">
       <span class="shape joining" aria-hidden="true"></span
-      ><strong>Joined <bdi class="automation-name" translate="no"></bdi>.</strong> It can claim this account's rewards
-      already, and votes with it from <time class="date"></time>.
-    </template>
+      ><strong>Joining <bdi class="automation-name" translate="no"></bdi>:</strong> votes from
+      <time class="date"></time>.</template
+    >
     <template id="left">
       <span class="shape leaving" aria-hidden="true"></span
-      ><strong>Left <bdi class="automation-name" translate="no"></bdi>.</strong> It can no longer claim this account's
-      rewards, but its votes count for <bdi class="automation-name" translate="no"></bdi> until this epoch ends on
-      <time class="date"></time>.
-    </template>
+      ><strong>Leaving <bdi class="automation-name" translate="no"></bdi>:</strong>
+      <span data-own="your votes from" data-theirs="its owner's votes from"></span>
+      <time class="date"></time>.</template
+    >
     <template id="partly">
       <span class="shape stopped" aria-hidden="true"></span
-      ><strong>Partly in <bdi class="automation-name" translate="no"></bdi>.</strong> Only some of its approvals are
-      set.
-    </template>
+      ><strong>Partly in <bdi class="automation-name" translate="no"></bdi>:</strong> only some of its approvals are
+      set.</template
+    >
     <template id="stopped">
       <span class="shape stopped" aria-hidden="true"></span
-      ><strong
-        >In <bdi class="automation" translate="no"></bdi>, which has not voted since
-        <time class="voted"></time>.</strong
-      >
-      This account has earned nothing from voting since <time class="since"></time>, and you can't vote with it while
-      that automation holds its votes.
-    </template>
+      ><strong>In <bdi class="automation" translate="no"></bdi></strong> · stopped <time class="voted"></time
+    ></template>
     <template id="other">
       <span class="shape elsewhere" aria-hidden="true"></span
-      ><strong>In another Hydrex automation: <bdi class="automation" translate="no"></bdi>.</strong> Joining takes it
-      out of that automation.
-    </template>
+      ><strong>In Hydrex's <bdi class="automation" translate="no"></bdi> automation.</strong></template
+    >
     <template id="left-other">
       <span class="shape leaving" aria-hidden="true"></span
-      ><strong>Left <bdi class="automation" translate="no"></bdi>.</strong> You vote with it from
-      <time class="date"></time>.
-    </template>
+      ><strong>Left <bdi class="automation" translate="no"></bdi>:</strong>
+      <span data-own="your votes from" data-theirs="its owner's votes from"></span>
+      <time class="date"></time>.</template
+    >
     <template id="delegated">
       <span class="shape elsewhere" aria-hidden="true"></span
       ><strong
         >Delegated to <code translate="no"><a class="address"></a></code>.</strong
-      >
-      Not a known automation. Joining an automation moves its votes there.
-    </template>
-    <template id="self"
-      ><span class="shape idle" aria-hidden="true"></span><strong>Not in an automation.</strong> You vote with
-      it.</template
+      ></template
     >
+    <template id="self"
+      ><span class="shape idle" aria-hidden="true"></span
+      ><strong data-own="You vote with it." data-theirs="Its owner votes with it."></strong
+    ></template>
     <template id="ended">
-      <span class="shape idle" aria-hidden="true"></span><strong>Lock ended.</strong> No votes to give.
-      <a href="https://www.hydrex.fi/accounts">Extend it on Hydrex</a>.
-    </template>
+      <span class="shape idle" aria-hidden="true"></span><strong>Lock ended.</strong>
+      <span data-own-only><a href="https://www.hydrex.fi/accounts">Extend it on Hydrex</a>.</span></template
+    >
     <template id="empty"
-      ><span class="shape idle" aria-hidden="true"></span><strong>Empty.</strong> No HYDX in it.</template
+      ><span class="shape idle" aria-hidden="true"></span><strong>Empty:</strong> no HYDX in it.</template
     >
   </body>
 </html>

@@ -13,7 +13,6 @@ import {
   fraction,
   hexLines,
   listWith,
-  share,
   short,
   units,
   until,
@@ -48,13 +47,6 @@ test("how long until", () => {
   assert.equal(until(61), "1 min");
   assert.equal(until(59), "less than a minute");
   assert.equal(until(-5), "less than a minute");
-});
-
-test("shares with a plain name are said in words too", () => {
-  assert.equal(share(3333n), "a third (33.33%)");
-  assert.equal(share(6667n), "two thirds (66.67%)");
-  assert.equal(share(5000n), "half (50%)");
-  assert.equal(share(1234n), "12.34%");
 });
 
 test("numbers", () => {

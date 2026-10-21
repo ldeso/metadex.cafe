@@ -75,23 +75,6 @@ export function earningPower(votes: bigint): string {
 export const bps = (value: bigint): string => percent.format(Number(value) / 10_000);
 export const fraction = (value: number): string => roughPercent.format(value);
 
-const FRACTIONS: Record<number, string> = {
-  0: "none",
-  2500: "a quarter",
-  3333: "a third",
-  3334: "a third",
-  5000: "half",
-  6666: "two thirds",
-  6667: "two thirds",
-  7500: "three quarters",
-  10_000: "all",
-};
-
-export function share(value: bigint): string {
-  const words = FRACTIONS[Number(value)];
-  return words ? `${words} (${bps(value)})` : bps(value);
-}
-
 export const day = (time: number): string => utcDay.format(time * 1000);
 export const date = (time: number): string => utcDate.format(time * 1000);
 

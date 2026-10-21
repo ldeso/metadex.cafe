@@ -104,16 +104,16 @@ test("an account that left another automation this epoch votes from the next", (
 });
 
 test("accounts are grouped by what their owner can do with them", () => {
-  assert.equal(groupWith({ delegate: USDC, delegateAtStart: USDC, delegateVoted: STOPPED }), "stopped");
-  assert.equal(groupWith({ claimer: CONDUIT }), "attention");
+  assert.equal(groupWith({ delegate: USDC, delegateAtStart: USDC, delegateVoted: STOPPED }), "needs");
+  assert.equal(groupWith({ claimer: CONDUIT }), "needs", "partly in");
   assert.equal(groupWith({ delegate: CONDUIT, delegateAtStart: CONDUIT, claimer: CONDUIT }), "in:carbon-impact");
   assert.equal(groupWith({ delegate: MAXI, delegateAtStart: MAXI, claimer: MAXI }), "in:automaxi");
-  assert.equal(groupWith({ delegate: CONDUIT, claimer: CONDUIT }), "joining");
-  assert.equal(groupWith({ delegateAtStart: CONDUIT }), "leaving");
-  assert.equal(groupWith({}), "open");
-  assert.equal(groupWith({ delegate: USDC, delegateVoted: NOW }), "open", "in a running automation");
-  assert.equal(groupWith({ delegate: STRANGER }), "open");
-  assert.equal(groupWith({ delegateAtStart: USDC }), "open", "left another automation");
+  assert.equal(groupWith({ delegate: CONDUIT, claimer: CONDUIT }), "in:carbon-impact", "joining");
+  assert.equal(groupWith({ delegateAtStart: CONDUIT }), "other", "leaving");
+  assert.equal(groupWith({}), "other");
+  assert.equal(groupWith({ delegate: USDC, delegateVoted: NOW }), "other", "in a running automation");
+  assert.equal(groupWith({ delegate: STRANGER }), "other");
+  assert.equal(groupWith({ delegateAtStart: USDC }), "other", "left another automation");
   assert.equal(groupWith({ lockType: 0, end: NOW }), "closed");
   assert.equal(groupWith({ amount: 0n }), "closed");
   assert.equal(groupWith({ amount: 0n, delegate: CONDUIT, claimer: CONDUIT }), "in:carbon-impact", "empty, but in");
@@ -247,5 +247,5 @@ test("AutoMaxi: in it, joining it, and moving between the two in one call, which
 test("until AutoMaxi is on Base, the page leaves it out", () => {
   const changes = { delegate: MAXI, delegateAtStart: MAXI, claimer: MAXI };
   assert.deepEqual(statusWith(changes, [CARBON_IMPACT]), { kind: "delegated", to: MAXI });
-  assert.equal(groupOf(account(changes), statusWith(changes, [CARBON_IMPACT]), [CARBON_IMPACT]), "open");
+  assert.equal(groupOf(account(changes), statusWith(changes, [CARBON_IMPACT]), [CARBON_IMPACT]), "other");
 });

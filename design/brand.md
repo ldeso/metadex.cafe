@@ -26,7 +26,8 @@ layout of slips and receipts. `style.css` and `index.html` follow these rules. S
   the calls and the checks, which are never playful. People judge brands on warmth and competence, and competence
   decides what they pay for ([Aaker](https://www.gsb.stanford.edu/news/research/aaker_warm.html)).
 - No puns where money moves: no brewing, roasting or fresh cups of yield, and nothing "on the house" that is not free.
-- Independent, and says so: not Dromos's, not Hydrex's. Name Carbon Impact's operator and keys once known.
+- Independent, and says so: not Dromos's, not Hydrex's. Anonymous for now: the page names no operator, nobody behind
+  Carbon Impact's keeper or admin key, and links to no repository of the café's.
 - Say "Aero", not "Aerodrome", from 22 Oct 2026, and "Coinbase Wallet", its name again since 10 Sep 2026.
 
 ## What the page may claim
@@ -44,7 +45,7 @@ the Dutch ACM say the same.
   the transaction.
 - Say "retired" and "your share of what was retired". Never "carbon neutral", "offset" or "your footprint".
 - "Carbon Impact" is a product name the law covers, so the page says what it does in the same place.
-- Home's heading says what happens, which anyone can check: "Your Hydrex votes, retiring carbon credits and paying you".
+- Home's heading says what happens, which anyone can check: "Automations that vote with your Hydrex accounts".
 
 ## Trust
 
@@ -126,9 +127,10 @@ and works in one colour.
 
 ## Navigation
 
-- **The header is the same on every view, at every width:** the name, which leads Home; How it works, as a link; and the
-  app, as the one button, which shows the wallet once connected. The link to the view shown reads as where you are: in
-  ink, not the accent, and marked as the current page.
+- **The header is the same on every view, at every width:** the name, which leads Home, and the app, as the one button,
+  which shows the wallet once connected. On the App itself, the button reads as where you are.
+- **A breadcrumb** leads back to the App from every page below it, as wallets' browsers and Safe{Wallet}'s frame have no
+  address bar.
 - **A view repeats only its own main action,** as a button, such as "Open the app" on Home. It never offers a second way
   to a page the header already leads to.
 - **Within a view, a link leads to a section and says what it holds,** such as "What it means" or "More on leaving",
@@ -172,8 +174,9 @@ Klima Protocol agrees to the café using its logo where it makes sense. Placed b
 retires the credits, and nothing more. The Commission says a trade mark is generally unlikely to count as a
 sustainability label, unless it is a certification mark.
 
-- **Beside a retirement only:** under "Retired so far" on Home, and on each receipt's retirement line, as "through Klima
-  Protocol", at 24 px. Never alone as a badge, in Home's heading, or next to "impact" without a figure.
+- **Beside a retirement only:** beside "Retired so far" on Carbon Impact's page, and on each receipt's retirement line,
+  as "through Klima Protocol", at 24 px. Never alone as a badge, in Home's heading, or next to "impact" without a
+  figure.
 - **Unaltered:** Klima's own icon, the green mark on its black disc, which works in both themes. Its guidelines keep a
   third of its size clear around it: 8 px at 24 px.
 - **In the repository:** `klima-protocol.svg` is Klima Protocol's, all rights reserved, under

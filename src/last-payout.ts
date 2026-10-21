@@ -2,9 +2,9 @@ import type { Address, Hex } from "viem";
 import { blockTime, now, readLater, required, rpc, same, type Call } from "./chain.ts";
 import { lastClaimBlocks, readClaimsAt, totals, walkClaims, WALK_LIMIT, type Walk } from "./claims.ts";
 import { AUTOMATIONS, AUTOMAXI_FEE_BPS, KEEPER, KVCM, type Automation, type Kind } from "./config.ts";
-import { clone, fill, fillAddress, fillTime, show, showHex, txUrl } from "./dom.ts";
+import { clone, fill, fillAddress, fillOwn, fillTime, show, showHex, txUrl } from "./dom.ts";
 import { rewardsFor, tokensOf, type Earnings } from "./earnings.ts";
-import { WEEK, amount, bps, list, listWith, short, usd, utc, weekStart } from "./format.ts";
+import { WEEK, amount, bps, listWith, short, usd, utc, weekStart } from "./format.ts";
 import { escrow, type Account, type Holdings } from "./hydrex.ts";
 import { lastEarnings } from "./last-epoch.ts";
 import { pricesAt, type Token } from "./prices.ts";
@@ -27,10 +27,10 @@ import {
   type Standing,
 } from "./receipts.ts";
 
-// The section "Payouts": for each of the owner's accounts in the page's automations, up to when it has been paid and
-// what waits to be claimed, then the receipt of its last payout.
+// The payouts of accounts in the page's automations: for each, up to when it has been paid and what waits to be
+// claimed, then the receipt of its last payout. The App reads them for all of an owner's accounts, to mark those paid
+// late; an account's page reads them for that account, and draws its receipt.
 
-const section = document.getElementById("receipts")!;
 const STATES = ["reading", "failed", "found"] as const;
 // A payout takes up to half a day after each flip.
 const UNDER_WAY = 12 * 3600;
@@ -46,7 +46,7 @@ type Part = {
   // Why there is no receipt: its last claim was made outside the automation, or nothing was claimed through it yet.
   note?: "outside" | "unclaimed";
 };
-type Entry = Part & {
+export type Entry = Part & {
   // The automation it is in, joining or leaving, whose receipts it shows; and the one whose votes earned its rewards
   // last epoch, in whose pools its standing is read: the same, unless it moved since.
   automation: Automation;
@@ -61,7 +61,9 @@ type Entry = Part & {
   // epoch's flip is due to it.
   due: boolean;
 };
-type Found = { epochStart: number; entries: Entry[] };
+export type Found = { epochStart: number; entries: Entry[] };
+// A payout under way: the accounts it has reached since the flip, those still due, and when it first paid one.
+export type UnderWay = { paid: Entry[]; left: Entry[]; first: number };
 // A receipt drawn, which is drawn again once prices are read.
 type Drawn = {
   node: HTMLElement;
@@ -71,26 +73,11 @@ type Drawn = {
   draw(prices?: Map<string, number>): void;
 };
 
-// The accounts on the page, and the accounts whose payouts were read.
-let shown: Holdings | undefined;
-let readFor: string | undefined;
-// The owner whose payouts the section shows.
-let showing: string | undefined;
 // What the five-minute check reads: one call for each account that a payout due since the flip has not reached yet,
-// whose answer shows once it has; whether some payouts could not be read, or were read against an older epoch's
-// figures; and when a payout under way stops being shown as such. Each calls for the payouts to be read again.
+// whose answer shows once it has. Each calls for the payouts to be read again.
 type Signal = { call: Call; paid: (answer: unknown) => boolean };
-let signals: Signal[] = [];
-let missed = false;
-let underUntil = Infinity;
-let checked = 0;
-let checking = false;
-// Each receipt drawn, by what it shows.
+// Each receipt drawn, by its owner and what it shows. Only those of the last draw are kept.
 const drawn = new Map<string, Drawn>();
-
-const setState = (state: (typeof STATES)[number]): void => {
-  for (const name of STATES) show(`.receipts-${name}`, name === state, section);
-};
 
 // The automation an account is in or joining, or else the one it is leaving.
 const automationOf = ({ delegate, claimer, delegateAtStart }: Account): Automation | undefined =>
@@ -140,6 +127,7 @@ function fillReceipt(
   time: number,
   name: string,
   tokens: Map<string, Token>,
+  own: boolean,
   prices?: Map<string, number>,
 ): void {
   // Rewards claimed as kVCM were not swapped. The shares are of all the kVCM: Carbon Impact retires up to its share,
@@ -169,6 +157,7 @@ function fillReceipt(
   show(".receipt-elsewhere", !same(payout.recipient, payout.owner), item);
   fillAddress(item, "receipt-recipient", payout.recipient);
   item.querySelector<HTMLAnchorElement>(".receipt-tx")!.href = txUrl(payout.tx);
+  fillOwn(item, own);
 }
 
 // AutoMaxi's receipt: what its claims in the epoch of the last one received, its fee, and what reached the account's
@@ -181,14 +170,20 @@ function fillClaims(
   { claims, stopped }: Walk,
   times: Map<number, number>,
   tokens: Map<string, Token>,
+  own: boolean,
   prices?: Map<string, number>,
 ): void {
   const { received, fees, paid } = totals(claims);
   const flip = weekStart(times.get(claims[0]!.block)!);
   const elsewhere = claims.some((claim) => !same(claim.owner, owner));
+  // To the owner: "Paid to you", unless some claims paid whoever owned the account before.
+  ownWords(
+    item.querySelector(".receipt-paid-to")!,
+    elsewhere ? "Paid to its owner" : "Paid to you",
+    "Paid to its owner",
+  );
   fill(item, {
     "receipt-id": `#${id}`,
-    "receipt-paid-to": elsewhere ? "Paid to its owner" : "Paid to you",
     "receipt-fee-share": bps(AUTOMAXI_FEE_BPS),
     "receipt-claimed-usd": worth(received, tokens, prices),
     "receipt-fee-usd": worth(fees, tokens, prices),
@@ -205,14 +200,24 @@ function fillClaims(
     ...claims.map(({ block, caller, owner: paid, tx }) => {
       const line = clone("claim-line");
       fillTime(line, "claim-time", times.get(block)!, utc);
-      const by = same(caller, KEEPER) ? "by AutoMaxi" : same(caller, owner) ? "by you" : `by ${short(caller)}`;
-      fill(line, { "claim-by": by });
+      const by = same(caller, KEEPER) ? "by AutoMaxi" : `by ${short(caller)}`;
+      ownWords(
+        line.querySelector(".claim-by")!,
+        same(caller, owner) ? "by you" : by,
+        same(caller, owner) ? "by its owner" : by,
+      );
       show(".claim-to", !same(paid, owner), line);
       fillAddress(line, "claim-owner", paid);
       line.querySelector<HTMLAnchorElement>(".claim-tx")!.href = txUrl(tx);
       return line;
     }),
   );
+  fillOwn(item, own);
+}
+
+// Words that differ for the owner: fillOwn puts them in.
+function ownWords(element: Element, own: string, theirs: string): void {
+  Object.assign((element as HTMLElement).dataset, { own, theirs });
 }
 
 // Dollars at the prices of last epoch's rewards.
@@ -231,14 +236,12 @@ function waitingLine({ waiting, unknown }: Standing, earnings: Earnings): string
     : "Nothing waits to be claimed in last epoch's pools.";
 }
 
-function standingItem(entry: Entry, epochStart: number, receipt?: HTMLElement) {
+function standingItem(entry: Entry, epochStart: number, own: boolean, receipt?: HTMLElement) {
   const { automation, voter, account, standing, earnings, early, note, time } = entry;
   const item = clone("standing");
   const through = standing?.through ?? 0;
   const late = !!standing?.late;
   fill(item, {
-    "standing-name": account.name || "Account",
-    "standing-id": `#${account.id}`,
     "standing-automation": automation.name,
     "standing-voter": voter.name,
     "standing-waiting": standing && earnings ? waitingLine(standing, earnings) : "",
@@ -262,14 +265,17 @@ function standingItem(entry: Entry, epochStart: number, receipt?: HTMLElement) {
   show(".standing-outside", note === "outside", item);
   show(".standing-unclaimed", note === "unclaimed", item);
   if (receipt) item.querySelector(".standing")!.append(receipt);
+  fillOwn(item, own);
   return item;
 }
 
 // The accounts paid since the flip, and those still due, while the first of them was paid less than half a day ago.
-function underWay({ entries }: Found): { paid: Entry[]; left: Entry[]; first: number } | undefined {
+function underWay({ entries }: Found): UnderWay | undefined {
   const paid = entries.filter((entry) => entry.due && entry.standing?.paid);
   const left = entries.filter((entry) => entry.due && !entry.standing?.paid);
   const first = Math.min(...paid.flatMap(({ time }) => (time === undefined ? [] : [time])));
+  // Without the time of a payout made, the page cannot say whether one is under way.
+  if (!Number.isFinite(first)) return undefined;
   return paid.length && left.length && now() - first < UNDER_WAY ? { paid, left, first } : undefined;
 }
 
@@ -438,85 +444,180 @@ async function readPayouts(holdings: Holdings, members: Account[]): Promise<Foun
   return { epochStart, entries };
 }
 
-export function forgetPayout(): void {
-  shown = readFor = showing = undefined;
-  [signals, missed, underUntil] = [[], false, Infinity];
-  section.hidden = true;
-}
+export type Payouts = {
+  // Reads the payouts of the holdings' accounts that are in one of the page's automations, or were when this epoch
+  // started. A read of the same accounts in the same epoch keeps what is shown until there is something new.
+  show(holdings: Holdings): void;
+  forget(): void;
+  // A payout goes on for hours, so the page may have read it half done. Every five minutes, while a payout due since
+  // the flip has not reached every account, one cheap read per account shows whether it has since, and only then are
+  // the payouts read again, as they are when some could not be read. A new epoch, or a change of accounts, reads them
+  // again anyway.
+  check(): void;
+};
 
-// Shows the payouts of an owner with an account that is in one of the page's automations, or was when this epoch
-// started.
-export function showPayout(holdings: Holdings): void {
-  shown = holdings;
-  void load(true);
-}
+// `section`, if any, shows the payouts and draws their receipts, in words to their owner when `ownedBy` says the
+// account's owner is the viewer; `found` hears of each read, even one of no accounts.
+export function payouts(
+  section: HTMLElement | undefined,
+  found: (found: Found, under: UnderWay | undefined) => void = () => {},
+  ownedBy: (owner: Address) => boolean = () => true,
+): Payouts {
+  // The accounts given, and those whose payouts were read.
+  let shown: Holdings | undefined;
+  let readFor: string | undefined;
+  // The owner whose payouts the section shows.
+  let showing: string | undefined;
+  // Whether some payouts could not be read, or were read against an older epoch's figures; and when a payout under
+  // way stops being shown as such.
+  let signals: Signal[] = [];
+  let missed = false;
+  let underUntil = Infinity;
+  let checked = 0;
+  let checking = false;
 
-// A quiet read keeps what is shown until there is something new, and a failed one keeps everything.
-async function load(quietly = false): Promise<void> {
-  const holdings = shown;
-  if (!holdings) return;
-  const key = keyOf(holdings);
-  if (quietly && readFor === key) return;
-  const members = holdings.accounts.filter((account) => automationOf(account));
-  section.hidden = !members.length;
-  if (!members.length) return;
-  readFor = key;
-  checked = Date.now();
-  const owner = holdings.owner.toLowerCase();
-  const kept = quietly && showing === owner;
-  if (!kept) setState("reading");
-  // False once another owner's accounts, or a newer read, took over.
-  const current = () => readFor === key && !!shown && keyOf(shown) === key;
-  // A quiet read that fails keeps what is shown, and the next check reads the payouts again.
-  const fail = (error: unknown) => {
-    console.error(error);
-    if (!current()) return;
-    if (kept) return void (missed = true);
-    readFor = undefined;
-    setState("failed");
+  const setState = (state: (typeof STATES)[number]): void => {
+    if (section) for (const name of STATES) show(`.receipts-${name}`, name === state, section);
   };
-  let found: Found;
-  let tokens: Map<string, Token>;
-  let names: Map<number, string>;
-  let times: Map<number, number>;
-  try {
-    found = await readPayouts(holdings, members);
-    const payouts = found.entries.flatMap(({ payout }) => (payout ? [payout] : []));
-    const claims = found.entries.flatMap(({ walk }) => walk?.claims ?? []);
-    [tokens, names, times] = await Promise.all([
-      tokensOf(
-        [
-          ...payouts.flatMap(({ earned, paid, fees }) => [...earned, ...paid, ...fees]),
-          ...claims.flatMap(({ received }) => received),
-        ].map(({ token }) => token),
-        readLater,
-      ),
-      namesAt(payouts.map(({ block }) => block)),
-      blockTimes(claims.map(({ block }) => block)),
-    ]);
-  } catch (error) {
-    return fail(error);
+
+  // A quiet read keeps what is shown until there is something new, and a failed one keeps everything.
+  async function load(quietly = false): Promise<void> {
+    const holdings = shown;
+    if (!holdings) return;
+    const key = keyOf(holdings);
+    if (quietly && readFor === key) return;
+    const members = holdings.accounts.filter((account) => automationOf(account));
+    if (section) section.hidden = !members.length;
+    readFor = key;
+    if (!members.length) {
+      [signals, missed, underUntil] = [[], false, Infinity];
+      return found({ epochStart: holdings.epochStart, entries: [] }, undefined);
+    }
+    checked = Date.now();
+    const owner = holdings.owner.toLowerCase();
+    const kept = quietly && showing === owner;
+    if (!kept) setState("reading");
+    // False once other accounts, or a newer read, took over.
+    const current = () => readFor === key && !!shown && keyOf(shown) === key;
+    // A read that fails is read again by the next check, or by the section's button, and not by showing the same
+    // accounts again. A quiet one keeps what is shown.
+    const fail = (error: unknown) => {
+      console.error(error);
+      if (!current()) return;
+      missed = true;
+      if (!kept) setState("failed");
+    };
+    let read: Found;
+    try {
+      read = await readPayouts(holdings, members);
+    } catch (error) {
+      return fail(error);
+    }
+    if (!current()) return;
+    const under = underWay(read);
+    // An account is awaited while a payout is due to it, has not reached it, and has something to pay it. Its payout
+    // claims one of the fewest of last epoch's rewards worth half of them, so their records show when it has come.
+    signals = read.entries.flatMap(({ due, standing, earnings, account }) =>
+      due && standing && !standing.paid && (standing.waiting.length || standing.unknown)
+        ? watchedOf(weighed(earnings!.rewards, earnings!.prices)).map((pair) => ({
+            call: stampOf(account.id, pair),
+            paid: (stamp: unknown) => Number(stamp) >= read.epochStart,
+          }))
+        : [],
+    );
+    // Payouts not read, or read before last epoch's figures are final, are read again.
+    missed = read.entries.some(({ earnings }) => !earnings);
+    underUntil = under ? under.first + UNDER_WAY : Infinity;
+    found(read, under);
+    if (section) await draw(section, holdings, read, current, () => ownedBy(holdings.owner)).catch(fail);
+    if (!current()) return;
+    showing = owner;
+    setState("found");
   }
+
+  // Whether the payouts should be read again. A failed check is tried again at the next.
+  async function moved(): Promise<boolean> {
+    if (missed || now() >= underUntil) return true;
+    const watched = signals;
+    const answers = await readLater(watched.map(({ call }) => call)).catch((error: unknown) => {
+      console.error(error);
+      return [];
+    });
+    return watched.some(({ paid }, i) => answers[i] !== undefined && paid(answers[i]));
+  }
+
+  section?.querySelector(".receipts-again")!.addEventListener("click", () => void load());
+
+  return {
+    show(holdings) {
+      shown = holdings;
+      void load(true);
+    },
+    forget() {
+      shown = readFor = showing = undefined;
+      [signals, missed, underUntil] = [[], false, Infinity];
+      if (section) section.hidden = true;
+    },
+    check() {
+      if (!readFor || checking || Date.now() - checked < 300_000) return;
+      if (!signals.length && !missed && now() < underUntil) return;
+      const key = readFor;
+      checked = Date.now();
+      checking = true;
+      void moved()
+        .then((again) => {
+          if (!again || readFor !== key) return;
+          readFor = undefined;
+          return load(true);
+        })
+        .finally(() => (checking = false));
+    },
+  };
+}
+
+// Each standing, with the receipt of the account's last payout. Dollars need many more reads, so they come after, at
+// the prices of the flip before each payout, flip by flip at once. Without them, the receipts show tokens only.
+async function draw(
+  section: HTMLElement,
+  holdings: Holdings,
+  found: Found,
+  current: () => boolean,
+  own: () => boolean,
+): Promise<void> {
+  const payouts = found.entries.flatMap(({ payout }) => (payout ? [payout] : []));
+  const claims = found.entries.flatMap(({ walk }) => walk?.claims ?? []);
+  const [tokens, names, times] = await Promise.all([
+    tokensOf(
+      [
+        ...payouts.flatMap(({ earned, paid, fees }) => [...earned, ...paid, ...fees]),
+        ...claims.flatMap(({ received }) => received),
+      ].map(({ token }) => token),
+      readLater,
+    ),
+    namesAt(payouts.map(({ block }) => block)),
+    blockTimes(claims.map(({ block }) => block)),
+  ]);
   if (!current()) return;
   const receipts = new Map<Entry, Drawn>();
+  const owner = holdings.owner.toLowerCase();
   for (const entry of found.entries) {
     const { payout, time, walk, account, automation } = entry;
     let key: string;
     let make: () => Drawn;
     if (payout && time !== undefined) {
-      key = `${payout.id} ${payout.block}`;
+      key = `${owner} ${payout.id} ${payout.block}`;
       make = () => {
         const node = clone("receipt").firstElementChild as HTMLElement;
         const draw = (prices?: Map<string, number>) =>
-          fillReceipt(node, payout, time, names.get(payout.block)!, tokens, prices);
+          fillReceipt(node, payout, time, names.get(payout.block)!, tokens, own(), prices);
         return { node, priced: false, flip: weekStart(time), amounts: [...payout.earned, ...payout.paid], draw };
       };
     } else if (walk?.claims.length) {
-      key = `${automation.kind} ${account.id} ${walk.claims.map(({ tx }) => tx).join(" ")}`;
+      key = `${owner} ${automation.kind} ${account.id} ${walk.claims.map(({ tx }) => tx).join(" ")}`;
       make = () => {
         const node = clone("claims-receipt").firstElementChild as HTMLElement;
         const draw = (prices?: Map<string, number>) =>
-          fillClaims(node, account.id, holdings.owner, walk, times, tokens, prices);
+          fillClaims(node, account.id, holdings.owner, walk, times, tokens, own(), prices);
         const flip = weekStart(times.get(walk.claims[0]!.block)!);
         return { node, priced: false, flip, amounts: totals(walk.claims).received, draw };
       };
@@ -528,47 +629,22 @@ async function load(quietly = false): Promise<void> {
     }
     receipts.set(entry, drawn.get(key)!);
   }
+  const kept = new Set(receipts.values());
+  for (const [key, receipt] of drawn) if (!kept.has(receipt)) drawn.delete(key);
   section
     .querySelector(".standings")!
-    .replaceChildren(...found.entries.map((entry) => standingItem(entry, found.epochStart, receipts.get(entry)?.node)));
-  fill(section, {
-    "receipts-automations": list([...new Set(found.entries.map(({ automation }) => automation.name))]),
-  });
-  const under = underWay(found);
-  if (under) {
-    fill(section, {
-      "underway-paid": list(under.paid.map(({ account }) => `#${account.id}`)),
-      "underway-left": list(under.left.map(({ account }) => `#${account.id}`)),
-    });
-    fillTime(section, "underway-day", under.first);
-  }
-  show(".receipts-underway", !!under, section);
-  showing = owner;
-  setState("found");
-  // An account is awaited while a payout is due to it, has not reached it, and has something to pay it. Its payout
-  // claims one of the fewest of last epoch's rewards worth half of them, so their records show when it has come.
-  signals = found.entries.flatMap(({ due, standing, earnings, account }) =>
-    due && standing && !standing.paid && (standing.waiting.length || standing.unknown)
-      ? watchedOf(weighed(earnings!.rewards, earnings!.prices)).map((pair) => ({
-          call: stampOf(account.id, pair),
-          paid: (stamp: unknown) => Number(stamp) >= found.epochStart,
-        }))
-      : [],
-  );
-  // Payouts not read, or read before last epoch's figures are final, are read again.
-  missed = found.entries.some(({ earnings }) => !earnings);
-  underUntil = under ? under.first + UNDER_WAY : Infinity;
-  // Dollars need many more reads, so they come after, at the prices of the flip before each payout, flip by flip at
-  // once. Without them, the receipts show tokens only.
+    .replaceChildren(
+      ...found.entries.map((entry) => standingItem(entry, found.epochStart, own(), receipts.get(entry)?.node)),
+    );
   const unpriced = [...new Set(receipts.values())].filter(({ priced }) => !priced);
-  await Promise.all(
+  void Promise.all(
     [...new Set(unpriced.map((receipt) => receipt.flip))].map(async (flip) => {
       const these = unpriced.filter((receipt) => receipt.flip === flip);
       // A pool must be deep enough for the largest amount of the token that any receipt shows in dollars.
       const amounts = new Map<string, bigint>();
       for (const { token, amount: value } of these.flatMap((receipt) => receipt.amounts))
         if (value > (amounts.get(token.toLowerCase()) ?? 0n)) amounts.set(token.toLowerCase(), value);
-      // Another owner's accounts, or a newer read, may have taken over by then.
+      // Other accounts, or a newer read, may have taken over by then.
       if (!current()) return;
       const prices = await pricesAt([...tokens.values()], amounts, flip, now(), readLater).catch((error) => {
         console.error(error);
@@ -582,35 +658,3 @@ async function load(quietly = false): Promise<void> {
     }),
   );
 }
-
-// A payout goes on for hours, so the page may have read it half done. Every five minutes, while a payout due since the
-// flip has not reached every account, one cheap read per account shows whether it has since, and only then are the
-// payouts read again, as they are when some could not be read. A new epoch, or a change of accounts, reads them again
-// anyway.
-export function checkPayout(): void {
-  if (!readFor || checking || Date.now() - checked < 300_000) return;
-  if (!signals.length && !missed && now() < underUntil) return;
-  const key = readFor;
-  checked = Date.now();
-  checking = true;
-  void moved()
-    .then((again) => {
-      if (!again || readFor !== key) return;
-      readFor = undefined;
-      return load(true);
-    })
-    .finally(() => (checking = false));
-}
-
-// Whether the payouts should be read again. A failed check is tried again at the next.
-async function moved(): Promise<boolean> {
-  if (missed || now() >= underUntil) return true;
-  const watched = signals;
-  const answers = await readLater(watched.map(({ call }) => call)).catch((error: unknown) => {
-    console.error(error);
-    return [];
-  });
-  return watched.some(({ paid }, i) => answers[i] !== undefined && paid(answers[i]));
-}
-
-section.querySelector(".receipts-again")!.addEventListener("click", () => void load());

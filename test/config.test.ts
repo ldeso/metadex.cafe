@@ -25,8 +25,18 @@ import {
 } from "../src/config.ts";
 import { LANG, bps } from "../src/format.ts";
 import conduits from "../src/hydrex-conduits.json" with { type: "json" };
+import { ABOUT_SECTIONS, PRODUCT_SECTIONS, parse } from "../src/routes.ts";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+// A view of the page, from its opening tag to the next view's, or to the end of <main>.
+function viewOf(html: string, ...attributes: string[]): string {
+  const tags = [...html.matchAll(/<div\s+class="view[^"]*"[^>]*>/g)];
+  const i = tags.findIndex(([tag]) => attributes.every((attribute) => tag.includes(attribute)));
+  assert.ok(i >= 0, `no view with ${attributes.join(" ")}`);
+  return html.slice(tags[i]!.index, tags[i + 1]?.index ?? html.indexOf("</main>"));
+}
+const productOf = (html: string, kind: string) => viewOf(html, 'data-view="product"', `data-kind="${kind}"`);
 
 test("addresses are checksummed, and code hashes are 32 bytes", () => {
   const contracts = [
@@ -71,35 +81,48 @@ test("each automation has a kind, a name and the approvals of its own, and AutoM
     ],
   );
   const html = read("index.html");
-  // Each automation's page has the same six rows, in the same order.
-  const page = (id: string) => html.slice(html.indexOf(`<div id="${id}" class="view"`)).split('class="view"')[1] ?? "";
   const rows = (facts: string) => [...facts.matchAll(/<dt>([^<]+)<\/dt>/g)].map(([, row]) => row);
   const SIX = ["Taken", "The most it can become", "Goes to", "When", "Other costs", "Who can change it"];
-  const factsOf = (id: string) => /<dl class="fee-facts">[\s\S]*?<\/dl>/.exec(page(id))?.[0] ?? "";
-  assert.deepEqual(rows(factsOf("carbon-impact")), SIX);
+  const factsOf = (kind: string) => /<dl class="fee-facts">[\s\S]*?<\/dl>/.exec(productOf(html, kind))?.[0] ?? "";
+  // Each automation's page has the same six rows, in the same order.
+  for (const { kind } of AUTOMATIONS) assert.deepEqual(rows(factsOf(kind)), SIX, kind);
   const facts = factsOf("automaxi");
-  assert.deepEqual(rows(facts), SIX);
   assert.equal(bps(AUTOMAXI_FEE_BPS), "1%");
   assert.match(facts, /<dd>1% of each claim<\/dd>/);
   assert.match(facts, /<dd[^>]*>1%, fixed in its code<\/dd>/);
   assert.ok(facts.includes(`/address/${AUTOMAXI_TREASURY}"`));
-  assert.ok(page("automaxi").includes(AUTOMAXI.codeHash), "its page shows the code hash the page checks");
+  for (const { kind, codeHash } of AUTOMATIONS) {
+    assert.ok(productOf(html, kind).includes(codeHash), `${kind}'s page shows the code hash the page checks`);
+  }
   assert.equal(AUTOMAXI.address, getAddress(AUTOMAXI.address));
 });
 
-test("Choose finds each fact of each choice on the page: on its card in the menu, or in its page's fee facts", () => {
+test("each automation's page has the same parts, in the same order, and lists every check that can fail", () => {
   const html = read("index.html");
-  const card = /<article class="choice" data-choice="([^"]+)"[\s\S]*?<\/article>/g;
-  const cards = new Map([...html.matchAll(card)].map(([text, choice]) => [choice!, text]));
-  const page = (id: string) => html.slice(html.indexOf(`<div id="${id}" class="view"`)).split('class="view"')[1] ?? "";
-  const factsOf = (id: string) => /<dl class="fee-facts">[\s\S]*?<\/dl>/.exec(page(id))?.[0] ?? "";
-  assert.deepEqual([...cards.keys()], [...AUTOMATIONS.map(({ kind }) => kind), "self"]);
-  for (const [choice, text] of cards) {
-    for (const fact of ["pays", "taken", "most", "leaving"]) {
-      const has = (source: string) => new RegExp(`data-fact="[^"]*\\b${fact}\\b`).test(source);
-      assert.ok(has(text) || has(factsOf(choice)), `${choice} states "${fact}"`);
-    }
+  const failing: Record<string, string[]> = {
+    "carbon-impact": ["chain", "code", "contracts", "token", "approvals", "upgrade", "logic"],
+    automaxi: ["chain", "automaxi-code", "automaxi-contracts", "automaxi-approvals", "upgrade", "logic"],
+  };
+  for (const { kind } of AUTOMATIONS) {
+    const page = productOf(html, kind);
+    const sections = [...page.matchAll(/data-section="([^"]+)"/g)].map(([, section]) => section);
+    assert.deepEqual(sections, PRODUCT_SECTIONS[kind], kind);
+    const parts = [...page.matchAll(/<(h1|h2)[^>]*>([^<]+)</g)].map(([, , text]) => text!.trim());
+    assert.deepEqual(parts, [
+      AUTOMATIONS.find((each) => each.kind === kind)!.name,
+      "Your accounts in it",
+      "Your accounts that can join",
+      "Last epoch",
+      "Fee facts",
+    ]);
+    const checks = [...page.matchAll(/data-check="([^"]+)"/g)].map(([, check]) => check);
+    assert.deepEqual([...checks].sort(), [...failing[kind]!].sort(), kind);
   }
+  const about = viewOf(html, 'data-view="about"');
+  assert.deepEqual(
+    [...about.matchAll(/data-section="([^"]+)"/g)].map(([, section]) => section),
+    ABOUT_SECTIONS,
+  );
 });
 
 test("the page may reach its RPCs and nothing else, and the README lists them", () => {
@@ -142,28 +165,25 @@ test("the page checks the integrity of its script and stylesheet, and has nothin
   ]);
 });
 
-test("every address within the page has a target, and ids are unique", () => {
+test("ids are unique, every address within the page is one of its routes, and each view has a title", () => {
   const html = read("index.html");
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(([, id]) => id!);
   assert.deepEqual(ids, [...new Set(ids)]);
-  for (const [, id] of html.matchAll(/href="#([^"]+)"/g)) assert.ok(ids.includes(id!), `#${id} has no target`);
-  for (const view of html.match(/<[^>]+class="view"[^>]*>/g) ?? []) assert.match(view, /data-title="[^"]+"/);
+  for (const [, hash] of html.matchAll(/href="(#[^"]*)"/g)) {
+    assert.ok(hash === "#" || parse(hash!).view !== "home", `${hash} is not a route`);
+  }
+  for (const view of html.match(/<[^>]+class="view[^"]*"[^>]*>/g) ?? []) assert.match(view, /data-title="[^"]+"/);
 });
 
-test("How it works lists each of its sections, and every other automation of Hydrex's", () => {
+test("the page names no operator, links to no repository but Hydrex's, and shows no commit", () => {
   const html = read("index.html");
-  const view = html.slice(html.indexOf('<div id="how-it-works"'));
-  const sections = [...view.matchAll(/<section id="([^"]+)"/g)].map(([, id]) => id);
-  const contents = /<nav class="contents"[\s\S]*?<\/nav>/.exec(view)?.[0] ?? "";
-  assert.deepEqual(
-    [...contents.matchAll(/href="#([^"]+)"/g)].map(([, id]) => id),
-    sections,
-  );
-  const rows = [...view.matchAll(/data-automation="([^"]+)"/g)].map(([, address]) => address);
-  assert.deepEqual(
-    rows,
-    conduits
-      .filter(({ address }) => !AUTOMATIONS.some((automation) => automation.address === address))
-      .map(({ address }) => address),
-  );
+  const repositories = [...html.matchAll(/https:\/\/github\.com\/[^"\s<]+/g)].map(([url]) => url);
+  assert.ok(repositories.length > 0);
+  for (const url of repositories) assert.match(url, /^https:\/\/github\.com\/hydrexfi\//);
+  assert.doesNotMatch(html, /ldeso|leo-klima|%COMMIT%/);
+  assert.doesNotMatch(read("scripts/build.ts"), /COMMIT|rev-parse/);
+  // AutoMaxi's source, where it is verified.
+  const automaxi = productOf(html, "automaxi");
+  assert.ok(automaxi.includes(`https://basescan.org/address/${AUTOMAXI.address}#code`));
+  assert.ok(automaxi.includes(`https://repo.sourcify.dev/8453/${AUTOMAXI.address}`));
 });

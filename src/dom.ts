@@ -65,6 +65,15 @@ export function fillPlural(root: ParentNode, n: number): void {
   }
 }
 
+// Words said to an account's owner, or about its owner to anyone else, from data-own and data-theirs, as fillPlural
+// does for counts. What only the owner can do has data-own-only.
+export function fillOwn(root: ParentNode, own: boolean): void {
+  for (const element of root.querySelectorAll<HTMLElement>("[data-own]")) {
+    element.textContent = (own ? element.dataset.own : element.dataset.theirs) ?? "";
+  }
+  for (const element of root.querySelectorAll<HTMLElement>("[data-own-only]")) element.hidden = !own;
+}
+
 export function txLink(hash: Hex): HTMLAnchorElement {
   const link = document.createElement("a");
   link.href = txUrl(hash);

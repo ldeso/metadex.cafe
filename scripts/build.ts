@@ -1,5 +1,4 @@
 import * as esbuild from "esbuild";
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -7,14 +6,6 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const OUT = `${ROOT}/dist`;
 const { version } = JSON.parse(readFileSync(`${ROOT}/package.json`, "utf8")) as { version: string };
-
-function commit(): string {
-  try {
-    return process.env.COMMIT || execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
-  } catch {
-    return "unknown";
-  }
-}
 
 function integrity(file: string): string {
   const digest = createHash("sha384")
@@ -42,7 +33,6 @@ for (const file of ["icon.svg", "favicon.ico", "apple-touch-icon.png", "klima-pr
   copyFileSync(`${ROOT}/${file}`, `${OUT}/${file}`);
 const values: Record<string, string> = {
   VERSION: version,
-  COMMIT: commit().slice(0, 7),
   MAIN_INTEGRITY: integrity("main.js"),
   STYLE_INTEGRITY: integrity("style.css"),
 };

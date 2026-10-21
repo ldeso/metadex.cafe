@@ -16,7 +16,8 @@ export type Automation = {
   // What joining approves: 3 sends the account's claims to the automation, 5 delegates its votes.
   actions: number[];
 };
-// Klima's automation. One admin key controls its settings, which the page reads from Base.
+// Hydrex's automation, whose votes and payouts a keeper now sends. One admin key controls its settings, which the
+// page reads from Base.
 export const CARBON_IMPACT: Automation = {
   kind: "carbon-impact",
   name: "Carbon Impact",
@@ -36,6 +37,8 @@ export const AUTOMAXI: Automation = {
   actions: [3, 5],
 };
 export const AUTOMATIONS = [CARBON_IMPACT, AUTOMAXI];
+export const byKind = (kind: string): Automation | undefined =>
+  AUTOMATIONS.find((automation) => automation.kind === kind);
 // AutoMaxi's fee, FEE_BPS in its code, of each claim, and TREASURY, the 2-of-3 Safe it goes to.
 export const AUTOMAXI_FEE_BPS = 100n;
 export const AUTOMAXI_TREASURY: Address = "0x450c72de8c0079B49AcedF294a13011bd09D125B";

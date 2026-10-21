@@ -1,7 +1,7 @@
 # Design
 
 What metaDEX Café is today, what it should become, and why. The brand, from type and colour to the layout of receipts,
-is in [brand.md](brand.md).
+is in [brand.md](brand.md). The redesign towards minimalism is in [audit.md](audit.md): where the two disagree, it wins.
 
 Figures were read from Base on 17 Oct 2026, unless marked. [Brackets] mark decisions not yet taken, such as "[cap]".
 Mockups of the planned screens are on a design canvas, private to its owner:
@@ -9,23 +9,23 @@ Mockups of the planned screens are on a design canvas, private to its owner:
 
 ## The page today
 
-One static page for one automation, Carbon Impact, with three views addressed by the hash. Every section has an address
-of its own, and the views work without the script.
+One static page with views addressed by the hash, laid out by [audit.md](audit.md): each level down shows more, and the
+technical parts come last, folded.
 
-- **Home** (`/`): what Carbon Impact does, whether it still votes, and that Hydrex's other automations stopped. Its
-  figures: tonnes retired, the share retired, its Earning Power, when the epoch ends, and what last epoch earned per
-  1,000 Earning Power. Then how it works in three steps, what you keep, give and get, a comparison with voting yourself
-  and with staying in a stopped automation, why it is safe to try, and common questions.
-- **The App** (`#app`): a summary of the wallet's accounts, and the epoch as a timeline. Then the accounts, grouped by
-  what the owner can do with them: in an automation that stopped, needs attention, in Carbon Impact, joining, leaving,
-  can join, can't join. A group whose button can act on several accounts has boxes to tick. Last, a receipt for each
-  account in the last payout, and the payout address.
-- **The review:** a dialog in up to three steps: before you join, what changes, and the calls, each as a slip with its
-  fields as the wallet will show them. One transaction at a time. Inside Safe{Wallet}, one Safe transaction, with its
-  calldata word by word.
-- **How it works** (`#how-it-works`): everything in full. The stopped automations, what joining allows, when things
-  happen, how the votes did last epoch against all of Hydrex, who controls what, the carbon credits, a brief for
-  co-signers, what the page checks, questions, and words.
+- **Home** (`/`): what the café is, in a heading and a line, the one button, and a line on Hydrex's automations that
+  stopped.
+- **The App** (`#app`): with a wallet, its accounts first, in groups: those that need their owner, those in each
+  automation, the others, and a fold for those with nothing to vote with. Each row leads to the account's page. Then the
+  menu: each automation and voting yourself, with what it takes and what it paid last epoch.
+- **An automation's page** (`#hydrex/carbon-impact`, `#hydrex/automaxi`): its status, what it does, leaving, your
+  accounts in it and Join, last epoch, and its fee facts. Then folds: against all of Hydrex, joining and leaving, who
+  controls what, one of its own, and Check it.
+- **An account's page** (`#hydrex/` and its number): its status, its lock, what it earned, what its owner can do, and
+  its last payout as a receipt.
+- **The review:** a dialog in two steps: before you join, with a week's estimate and the gas, then the calls, each as a
+  slip with its fields as the wallet will show them. Inside Safe{Wallet}, one Safe transaction, with its calldata word
+  by word.
+- **About** (`#about`): the page's own facts, from a Safe, and how its figures are read.
 
 Every new screen keeps the page's rules:
 
@@ -107,50 +107,46 @@ wallet's browser, so every export also offers a copy.
 
 - **Done:** the stopped automations, and a way out of them; what votes earned against all of Hydrex; each account's last
   payout as a receipt, with up to when it was paid and what waits; Safe transactions with their calldata; the brand;
-  Choose for one or many accounts, with the gas cost; fee facts for Carbon Impact.
-- **Next, the rescue:** positions first in the App; one prompt with batching; change watch; ERC-7730 metadata for
-  `setConduitApproval`.
+  Choose for one or many accounts, with the gas cost, since replaced by the menu and the review; fee facts for Carbon
+  Impact; the redesign towards minimalism, in [audit.md](audit.md), with positions first in the App.
+- **Next, the rescue:** one prompt with batching; change watch; ERC-7730 metadata for `setConduitApproval`.
 - **Then, a second Hydrex automation, AutoMaxi:** on Base since 20 Oct 2026, in its version 2. It votes for the bribes
-  it expects to earn the most, and pays in the tokens earned, unswapped, less 1% of each claim. Done: the menu on Home,
-  one page template per automation, and Choose comparing the two and voting yourself. Still to do: Help me choose;
-  statements and export.
+  it expects to earn the most, and pays in the tokens earned, unswapped, less 1% of each claim. Done: the menu, one page
+  template per automation, and comparing the two with voting yourself. Still to do: statements and export.
 - **Later, Aero and liquidity:** Aero relays, once Aero grants the role to deploy one; managed liquidity positions; the
   brief link for co-signers.
 
 ## Views
 
-One static page, as today, with views addressed by the hash. Today's addresses keep working.
+One static page, with views addressed by the hash, as [audit.md](audit.md) lays them out.
 
-| View                    | Address                                                            | Today                              |
-| ----------------------- | ------------------------------------------------------------------ | ---------------------------------- |
-| Menu (Home)             | `/`                                                                | Home, with the menu                |
-| Your positions          | `#positions`                                                       | `#app`                             |
-| An automation's page    | One each: `#carbon-impact`, `#automaxi`                            | Same, with `#how-it-works` in full |
-| Choose for a position   | `#choose`, a dialog                                                | A dialog beside the group buttons  |
-| Review                  | A dialog                                                           | The review                         |
-| Receipts and statements | `#receipts`                                                        | The last payout only               |
-| Help me choose          | `#help-me-choose`                                                  | —                                  |
-| Check it yourself       | `#verify`, for every product                                       | `#verify`                          |
-| Brief for co-signers    | `#for-co-signers`, with the accounts and automation in the address | `#for-co-signers`                  |
-| Questions, Words        | `#questions`, `#words`                                             | Same                               |
+| View                         | Address                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------- |
+| Home                         | `/`                                                                          |
+| The App: accounts, then menu | `#app`; `#hydrex` too, until a second protocol has a page of its own         |
+| An automation's page         | `#hydrex/carbon-impact`, `#hydrex/automaxi`; a fold of it, such as `…/check` |
+| An account's page            | `#hydrex/9540`                                                               |
+| A receipt                    | `#hydrex/9540/2026-10-22`, once the page reads more payouts than the last    |
+| About                        | `#about`; `#about/check`, `#about/safe`, `#about/figures`                    |
+| Review                       | A dialog                                                                     |
+| Brief for co-signers         | Planned: the accounts and the automation in the address                      |
 
 The fragment of an address never reaches a server, so a brief can carry its accounts without the page storing anything.
 The page must check whatever it reads from a fragment, as it would anything from outside.
 
 ## Screens
 
-**The front door.** Without a wallet, Home is the menu: automations grouped by what they look after, with an address
-look-up and the stopped-automation callout on top. With a wallet, Home is your positions. Help me choose is a link from
-both, never a gate.
+**The front door.** Home is a heading, a line and the one button. The menu is in the App, after your accounts: without a
+wallet, right after the wallet buttons.
 
 **Your positions.** A summary of last epoch: earned, fees and retired, yours, and the next payout. Then "Needs you",
 with one action each: an automation that stopped or is ending, a position out of range, an account that has not voted.
 Then positions by protocol, each with who looks after it, its status and last epoch. On a desk, tables with boxes to
 tick and a bar for what to do with the ticked ones; on a phone, a card per position.
 
-**Choose for one account.** The automations that fit it, with last epoch's figures per 1,000 Earning Power at the same
-prices, "Vote yourself" among the choices, and the gas cost next to what the account would earn in a week. A new
-automation says "no record yet". A table compares them on demand: pays in, taken, the most it can take, leaving.
+**Choosing for an account.** The menu compares the automations and voting yourself, per 1,000 Earning Power; the join
+review gives what a week at last epoch's rate would pay the accounts picked, next to the gas of the change. Choose, a
+dialog that did both, is gone.
 
 **The join review.** Today's three steps. "What changes" adds the fee facts and an estimate for the accounts picked,
 marked "not a promise". "What your wallet will ask" sends one request for several accounts where the wallet can batch.
@@ -181,31 +177,13 @@ Then fee facts, custody, how to stop, and a table of moves with their cost and t
 **From a Safe:** the proposal in plain words, the calls, and a brief link for the other owners, with an optional reason
 for the record. Then the status Safe{Wallet} reports, and a monthly statement for the treasurer.
 
-**Help me choose:** three questions, then a suggestion with a reason for each answer, its facts, and an honest line: "If
-you only want the most, and have time each week, vote yourself."
-
-1. What do you hold? Hydrex accounts; an Aero stake or Aerodrome lock; a liquidity position; not sure.
-2. What should happen to the rewards? Paid to me as they are earned; added to what I hold; partly retired; as much as
-   possible.
-3. How much do you want to do each week? Nothing; a little; I will vote myself.
-
-The first rule that matches decides. After a liquidity manager, the honest line becomes "If you can watch the price and
-move the range yourself, you keep everything."
-
-| When                                       | Suggestion                                                           |
-| ------------------------------------------ | -------------------------------------------------------------------- |
-| Not sure what they hold                    | Look at what you hold first                                          |
-| Will vote themselves, and want the most    | Vote yourself: nothing on the menu beats it, if you vote well        |
-| Hydrex accounts, rewards added to the lock | Nothing fits yet; the closest choices                                |
-| Hydrex accounts, partly retired            | Carbon Impact                                                        |
-| Hydrex accounts, anything else             | AutoMaxi, paying in the tokens earned, less 1%; Carbon Impact second |
-| An Aero stake or Aerodrome lock            | [Aero relay]                                                         |
-| A liquidity position                       | [Liquidity manager]                                                  |
+**Help me choose** is dropped: the three choices on the menu, and the line for voting yourself, do its job.
 
 ## Patterns
 
-**Fee facts.** The same six rows, in this order, for every product, on its page, in the review and in Choose. They are
-read from the contract each time, with the block. A product that cannot fill a row does not go on the menu.
+**Fee facts.** The same six rows, in this order, for every product, on its page. The review gives what it takes and who
+can change it. They are read from the contract each time, with the block. A product that cannot fill a row does not go
+on the menu.
 
 1. **Taken:** each cut, with its base, such as "of the rewards".
 2. **The most it can become:** the cap in the contract, or "no cap" in words.
