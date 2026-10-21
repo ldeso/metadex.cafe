@@ -1,5 +1,5 @@
 {
   "name": "metaDEX Café",
-  "description": "Vote, claim and swap on Base, from your own wallet.",
+  "description": "Vote, claim and swap on Base, from your own wallet. Each call is shown before your wallet asks.",
   "iconPath": "icon.svg"
 }
