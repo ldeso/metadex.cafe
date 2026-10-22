@@ -100,9 +100,9 @@ test("large numbers of votes, and shares", () => {
 
 test("hex in groups of four: an address or a hash on one line, calldata a line for each word", () => {
   assert.deepEqual(hexLines("0xdE91885cF35ac57DF0c4A75c16862127dBe8317c"), [
-    ["0xdE91", "885c", "F35a", "c57D", "F0c4", "A75c", "1686", "2127", "dBe8", "317c"],
+    ["0x", "dE91", "885c", "F35a", "c57D", "F0c4", "A75c", "1686", "2127", "dBe8", "317c"],
   ]);
-  assert.equal(hexLines(`0x${"ab".repeat(32)}`)[0]!.length, 16);
+  assert.equal(hexLines(`0x${"ab".repeat(32)}`)[0]!.length, 17);
   const data = `0x84dbc448${"0".repeat(24)}de91885cf35ac57df0c4a75c16862127dbe8317c${"0".repeat(60)}2544${"0".repeat(63)}1`;
   const lines = hexLines(data);
   assert.deepEqual(lines[0], ["0x84dbc448"]);

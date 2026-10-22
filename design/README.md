@@ -12,26 +12,25 @@ Mockups of the planned screens are on a design canvas, private to its owner:
 ## The page today
 
 One static page with views addressed by the hash, laid out by [audit.md](audit.md): each level down shows more, and the
-technical parts come last, folded.
+technical parts open from an info button, as popups.
 
-- **Home** (`/`): what the café does, in a heading and a line, the one button, and a line on Hydrex's automations that
-  stopped.
+- **Home** (`/`): what the café does, in a heading, and the one button. Once a wallet is connected, Home is the App.
 - **The App** (`#app`): what needs you across the products, each with one action; then the products, the Hydrex
-  automations and the swap, each with what you hold in it; and a fold, What this wallet allows. See
+  automations and the swap, each with what you hold in it; and Approvals, what this wallet allows, in a popup. See
   [products.md](products.md).
 - **Hydrex** (`#hydrex`): with a wallet, its accounts first, in groups: those that need their owner, those in each
   automation, the others, and a fold for those with nothing to vote with. Each row leads to the account's page. Then the
   menu: each automation and voting yourself, with what it takes and what it paid last epoch.
 - **The swap** (`#swap`, `#swap/weth`): the output, the wallet's tokens with their routes, what the ticked ones fetch,
-  and folds: fee facts, who controls what, approvals you gave the swappers, Check it.
-- **An automation's page** (`#hydrex/carbon-impact`, `#hydrex/automaxi`): its status, what it does, leaving, your
-  accounts in it and Join, last epoch, and its fee facts. Then folds: against all of Hydrex, joining and leaving, who
-  controls what, one of its own, and Check it.
+  and popups: its costs, who controls what and its smart contracts; approvals you gave the swappers.
+- **An automation's page** (`#hydrex/carbon-impact`, `#hydrex/automaxi`): its status, its key figures, and your accounts
+  in it and Join. Info buttons beside them open fee facts, against all of Hydrex, joining and leaving, one of its own,
+  and Check it, with who controls what.
 - **An account's page** (`#hydrex/` and its number): its status, its lock, what it earned, what its owner can do, and
   its last payout as a receipt.
 - **The review:** a dialog in two steps: before you join, claim or swap, with what it costs, then the calls, each as a
-  slip with its fields as the wallet will show them. One prompt with EIP-5792 where the wallet allows it. Inside
-  Safe{Wallet}, one Safe transaction, with its calldata word by word.
+  slip that says what it does, with its fields as the wallet will show them behind its info button. One prompt with
+  EIP-5792 where the wallet allows it. Inside Safe{Wallet}, one Safe transaction, with its calldata word by word.
 - **About** (`#about`): the page's own facts, from a Safe, and how its figures are read.
 
 Every new screen keeps the page's rules:
@@ -138,18 +137,18 @@ wallet's browser, so every export also offers a copy.
 
 One static page, with views addressed by the hash, as [audit.md](audit.md) lays them out.
 
-| View                         | Address                                                                      |
-| ---------------------------- | ---------------------------------------------------------------------------- |
-| Home                         | `/`                                                                          |
-| The App: needs you, products | `#app`; its fold `#app/allows`                                               |
-| Hydrex: accounts, then menu  | `#hydrex`                                                                    |
-| The swap                     | `#swap`, `#swap/weth`; a fold, such as `#swap/weth/check`                    |
-| An automation's page         | `#hydrex/carbon-impact`, `#hydrex/automaxi`; a fold of it, such as `…/check` |
-| An account's page            | `#hydrex/9540`                                                               |
-| A receipt                    | `#hydrex/9540/2026-10-22`, once the page reads more payouts than the last    |
-| About                        | `#about`; `#about/check`, `#about/safe`, `#about/figures`                    |
-| Review                       | A dialog                                                                     |
-| Brief for co-signers         | Planned: the accounts and the automation in the address                      |
+| View                         | Address                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| Home                         | `/`                                                                       |
+| The App: needs you, products | `#app`, and `/` once connected; its popup `#app/allows`                   |
+| Hydrex: accounts, then menu  | `#hydrex`                                                                 |
+| The swap                     | `#swap`, `#swap/weth`; a popup, such as `#swap/weth/check`                |
+| An automation's page         | `#hydrex/carbon-impact`, `#hydrex/automaxi`; a popup, such as `…/check`   |
+| An account's page            | `#hydrex/9540`                                                            |
+| A receipt                    | `#hydrex/9540/2026-10-22`, once the page reads more payouts than the last |
+| About                        | `#about`; `#about/check`, `#about/safe`, `#about/figures`                 |
+| Review                       | A dialog                                                                  |
+| Brief for co-signers         | Planned: the accounts and the automation in the address                   |
 
 The fragment of an address never reaches a server, so a brief can carry its accounts without the page storing anything.
 The page must check whatever it reads from a fragment, as it would anything from outside.

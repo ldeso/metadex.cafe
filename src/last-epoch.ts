@@ -1,5 +1,5 @@
 import { AUTOMATIONS, byKind, type Automation, type Kind } from "./config.ts";
-import { clone, fill, fillAddress, show } from "./dom.ts";
+import { clone, fill, fillAddress, isOpen, show } from "./dom.ts";
 import { readAllEarnings, readEarnings, sharesOf, valueOf, type Earnings } from "./earnings.ts";
 import { WEEK, compact, count, fraction, toEarningPower, usd } from "./format.ts";
 import type { Holdings } from "./hydrex.ts";
@@ -27,9 +27,9 @@ const compared = new Map<Kind, number>();
 type Shares = { start: number; of: Map<bigint, number | undefined>; asked: Set<bigint> };
 const shares = new Map<Kind, Shares>();
 
-// Each automation's fold "Against all of Hydrex", on its page.
-const foldOf = ({ kind }: Automation): HTMLDetailsElement =>
-  document.querySelector<HTMLDetailsElement>(`.view[data-kind="${kind}"] [data-section="record"]`)!;
+// Each automation's popup "Against all of Hydrex", on its page.
+const foldOf = ({ kind }: Automation): HTMLElement =>
+  document.querySelector<HTMLElement>(`.view[data-kind="${kind}"] [data-section="record"]`)!;
 const part = (fold: HTMLElement, name: string): HTMLElement => fold.querySelector<HTMLElement>(`.${name}`)!;
 
 export const earningsDue = (epoch: number, automations: Automation[]): boolean =>
@@ -171,11 +171,11 @@ function showEarnings(automation: Automation, { found, value }: Read): void {
   showColumn(table, "ours", found, value);
   showPools(fold, found, value);
   part(fold, "all-status").hidden = false;
-  part(fold, "all-status").textContent = "Reading every pool's rewards…";
+  part(fold, "all-status").textContent = "Loading all of Hydrex…";
   part(fold, "all-failed").hidden = part(fold, "versus").hidden = true;
   fill(table, { all: "…" });
   compared.delete(automation.kind);
-  if (fold.open) compare(automation);
+  if (isOpen(fold)) compare(automation);
 }
 
 function readAll(start: number): Promise<Earnings> {
@@ -214,8 +214,8 @@ function compare(automation: Automation): void {
       const ratio = perThousand(ours.usd, mine.votes) / perThousand(average.usd, all.votes);
       versus.textContent =
         Math.abs(ratio - 1) < 0.005
-          ? `Last epoch, ${name} earned about as much per 1,000 Earning Power as the average on Hydrex, at the same prices.`
-          : `Last epoch, ${name} earned ${fraction(Math.abs(ratio - 1))} ${ratio > 1 ? "more" : "less"} per 1,000 Earning Power than the average on Hydrex, at the same prices. Tokens left unpriced count for nothing in either.`;
+          ? "About Hydrex's average"
+          : `${fraction(Math.abs(ratio - 1))} ${ratio > 1 ? "above" : "below"} Hydrex's average`;
       status.hidden = true;
       versus.hidden = !Number.isFinite(ratio);
     },
@@ -235,18 +235,17 @@ onEarnings((kind, outcome) => {
   const read = earned.get(kind);
   if (outcome === "read" && read) showEarnings(automation, read);
   if (outcome === "failed" && !read) {
-    part(foldOf(automation), "record-waiting").textContent =
-      "Last epoch's figures could not be read from Base. The page tries again in a few minutes.";
+    part(foldOf(automation), "record-waiting").textContent = "Reading last epoch failed.";
   }
 });
 
 // An automation not on Base has no figures to read.
 export function showAbsent(automation: Automation): void {
-  part(foldOf(automation), "record-waiting").textContent = `No record yet: ${automation.name} is not on Base yet.`;
+  part(foldOf(automation), "record-waiting").textContent = "Not on Base yet.";
 }
 
 for (const automation of AUTOMATIONS) {
   const fold = foldOf(automation);
-  fold.addEventListener("toggle", () => fold.open && compare(automation));
+  fold.addEventListener("toggle", () => isOpen(fold) && compare(automation));
   fold.querySelector(".compare-again")!.addEventListener("click", () => compare(automation));
 }

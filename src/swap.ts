@@ -87,6 +87,8 @@ export type Result = { done: boolean; amountIn: bigint; amountOut: bigint; reaso
 export type Way = Hop & { tokenIn: Address };
 
 // Uniswap v3's fee tiers, and v4's standard pools without hooks, as [fee, tick spacing].
+// The exchanges in the order of the swapper's enum, which routes are looked up in and which a hop names.
+const BY_ID = [...EXCHANGES].sort((a, b) => a.id - b.id);
 const V3_FEES = [100, 500, 3000, 10_000];
 const V4_POOLS: [number, number][] = [
   [100, 1],
@@ -141,7 +143,7 @@ function v4Slot(a: Address, b: Address, fee: number, tickSpacing: number): Hex {
 }
 
 export function lookups(a: Address, b: Address, spacings: Map<number, number[]>): Lookup[] {
-  return EXCHANGES.flatMap((exchange): Lookup[] => {
+  return BY_ID.flatMap((exchange): Lookup[] => {
     const { factory, kind } = exchange;
     switch (kind) {
       case "algebra":
@@ -192,7 +194,7 @@ export function lookups(a: Address, b: Address, spacings: Map<number, number[]>)
 let spacingsRead: Promise<Map<number, number[]>> | undefined;
 
 function spacings(): Promise<Map<number, number[]>> {
-  const slipstreams = EXCHANGES.filter(({ kind }) => kind === "slipstream");
+  const slipstreams = BY_ID.filter(({ kind }) => kind === "slipstream");
   spacingsRead ??= read(slipstreams.map(({ factory }) => call(factory, slipstreamFactoryAbi, "tickSpacings"))).then(
     (found) => new Map(slipstreams.map(({ id }, i) => [id, ((found[i] as readonly number[]) ?? []).map(Number)])),
   );
@@ -225,14 +227,14 @@ export async function waysFor(pairs: [Address, Address][]): Promise<Map<string, 
   );
 }
 
-export const exchangeOf = (id: number): Exchange => EXCHANGES[id]!;
+export const exchangeOf = (id: number): Exchange => BY_ID[id]!;
 // Aero's classic pools add an MEV tax above a tip of 1 gwei, which a quote does not see.
 export const taxed = ({ exchange }: Hop): boolean => exchangeOf(exchange).kind === "solidly";
 // Uniswap v4's pools live in its PoolManager, and have no address of their own.
 export const poolless = ({ exchange }: Hop): boolean => exchangeOf(exchange).kind === "v4";
 export const MAX_TIP = 1_000_000_000n;
 
-// A hop's pool in words: "Uniswap v3 0.05%", "Aero, Slipstream, tick spacing 100".
+// A hop's pool in words: "Uniswap v3 0.05%", "Aero Slipstream, tick spacing 100".
 export function poolName({ exchange, fee, tickSpacing }: Hop): string {
   const { name, kind } = exchangeOf(exchange);
   if (kind === "v3" || kind === "v4") return `${name} ${fee / 10_000}%`;
@@ -500,7 +502,8 @@ export function swappedIn(receipts: Receipt[], swapper: Swapper, caller: Address
   return outcome;
 }
 
-// Each swapper's checks, as AutoMaxi's: its code, its output, where its fee goes, the fee, and the twelve factories.
+// Each swapper's checks, as AutoMaxi's: its code, its output, where its fee goes, the fee, and the twelve factories, in
+// the page's order.
 // A failed check turns that output off. Each is named by the id of its line on the page.
 export async function swapChecks(): Promise<Map<Output, string[]>> {
   const reads = SWAPPERS.flatMap(({ address }) =>
@@ -526,7 +529,7 @@ export async function swapChecks(): Promise<Map<Output, string[]>> {
         "swap-treasury": !same(String(treasury), SWAP_TREASURY),
         "swap-fee": fee !== SWAP_FEE_BPS,
         "swap-exchanges":
-          factories?.length !== EXCHANGES.length || EXCHANGES.some(({ factory }, j) => !same(factories[j]!, factory)),
+          factories?.length !== EXCHANGES.length || EXCHANGES.some(({ id, factory }) => !same(factories[id]!, factory)),
       };
       return [swapper.output, Object.entries(checks).flatMap(([id, fails]) => (fails ? [id] : []))];
     }),

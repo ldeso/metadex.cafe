@@ -164,12 +164,8 @@ function fillReceipt(
     then ? "Paid to its owner then" : "Paid to you",
     then ? "Paid to its owner then" : "Paid to its owner",
   );
-  const at = then ? (itself ? "At that owner's address," : "At that owner's payout address,") : undefined;
-  ownWords(
-    item.querySelector(".receipt-elsewhere-at")!,
-    at ?? "At your payout address,",
-    at ?? "At its owner's payout address,",
-  );
+  const at = then ? "To its owner then," : "To";
+  ownWords(item.querySelector(".receipt-elsewhere-at")!, at, at);
   show(".receipt-elsewhere", then || !itself, item);
   fillAddress(item, "receipt-recipient", payout.recipient);
   item.querySelector<HTMLAnchorElement>(".receipt-tx")!.href = txUrl(payout.tx);
@@ -247,11 +243,9 @@ function valueIn(earnings: Earnings): (found: Amount[]) => number {
 // What waits to be claimed in last epoch's pools, as far as it could be read.
 function waitingLine({ waiting, unknown }: Standing, earnings: Earnings): string {
   const value = valueIn(earnings)(waiting);
-  if (unknown && value > 0) return `At least ${usd(value)} waits to be claimed in last epoch's pools.`;
-  if (unknown) return "What waits to be claimed in last epoch's pools could not be read.";
-  return value > 0
-    ? `${usd(value)} waits to be claimed in last epoch's pools.`
-    : "Nothing waits to be claimed in last epoch's pools.";
+  if (unknown && value > 0) return `At least ${usd(value)} waiting`;
+  if (unknown) return "Waiting: not read";
+  return value > 0 ? `${usd(value)} waiting` : "Nothing waiting";
 }
 
 function standingItem(entry: Entry, epochStart: number, own: boolean, receipt?: HTMLElement) {

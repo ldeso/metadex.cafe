@@ -13,14 +13,15 @@ export type Route =
   | { view: "position"; id: bigint }
   | { view: "swap"; output: Output; section?: string };
 
-// The sections each page has, in the order they come. A product has its own between "control" and "check".
+// The sections each page has, in the order they come. Most open a popup; some are a part of one, as "control" is of
+// "check".
 export const APP_SECTIONS = ["allows"];
 export const ABOUT_SECTIONS = ["check", "safe", "figures"];
 export const PRODUCT_SECTIONS: Record<Kind, string[]> = {
-  "carbon-impact": ["record", "joining", "control", "carbon", "check"],
-  automaxi: ["record", "joining", "control", "votes", "check"],
+  "carbon-impact": ["fees", "record", "joining", "carbon", "check", "control"],
+  automaxi: ["fees", "record", "votes", "joining", "check", "control"],
 };
-export const SWAP_SECTIONS = ["fees", "control", "approvals", "check"];
+export const SWAP_SECTIONS = ["fees", "control", "check", "approvals"];
 
 // Hydrex's accounts are numbered from 1. A number has at most 78 digits, as a uint256.
 const ACCOUNT = /^[1-9]\d{0,77}$/;

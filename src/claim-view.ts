@@ -94,7 +94,7 @@ function tokenLines(
 // The review of a claim for the wallet's overdue accounts in AutoMaxi: what waits, then how to receive it, as it is or
 // swapped into one token, then the calls. "As they are" is the default, so that nothing is sold unasked.
 export async function openClaim(entries: Entry[], connection: Connection, hooks: Hooks): Promise<void> {
-  const [{ claims, tokens, earlier }, found, caps, middles] = await Promise.all([
+  const [{ claims, tokens }, found, caps, middles] = await Promise.all([
     owedOf(entries),
     costs().catch(() => undefined),
     capabilities(connection),
@@ -115,21 +115,14 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
     fragment.append(body);
     openReview({ name, pages: [{ title: name, body: fragment }], steps: [], checkHref, connection, hooks });
   };
-  if (!owing.length)
-    return nothing(
-      "Nothing waits to be claimed in the pools the page reads: AutoMaxi's keeper may have claimed it just now.",
-    );
+  if (!owing.length) return nothing("Nothing to claim: the keeper may have just claimed it.");
   const claimSlips = owing.map((claim) => claimSlip(claim, tokens));
   const simulated = await simulate(connection.address, claimSlips).catch(() => undefined);
-  if (simulated?.some(({ ok }) => !ok))
-    return nothing(
-      "Base refused the claim when the page ran it just now, so the page does not ask your wallet for it. Its keeper may be claiming at this moment: the page reads the payouts again within five minutes.",
-    );
+  if (simulated?.some(({ ok }) => !ok)) return nothing("Base refused the claim. The keeper may be claiming now.");
   const totals = paidBy(owing.flatMap(({ owed }) => owed));
   const paid = totals.map(({ token, paid }) => ({ token, amount: paid }));
   const body = clone("claim-before");
   fill(body, {
-    "claim-where": earlier ? "In last epoch's pools, and the epoch before's:" : "In last epoch's pools:",
     "claim-earned": usd(
       dollars(
         totals.map(({ token, earned }) => ({ token, amount: earned })),
@@ -157,7 +150,7 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
   const claimUsd = claimGas !== undefined && found ? gasUsd(claimGas, found) : undefined;
   const gasLine = body.querySelector(".claim-gas")!;
   const sayGas = (withSwap?: number) =>
-    (gasLine.textContent = `Gas ${claimUsd === undefined ? "…" : usd(claimUsd)}${withSwap === undefined ? "" : `, or ${usd(withSwap)} with the swap`}. There may be more in other pools.`);
+    (gasLine.textContent = `Gas ${claimUsd === undefined ? "…" : usd(claimUsd)}${withSwap === undefined ? "" : `, ${usd(withSwap)} with the swap`}`);
   sayGas();
   // The outputs whose checks passed, in a list to pick from.
   const select = body.querySelector<HTMLSelectElement>(".claim-output")!;
@@ -210,7 +203,7 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
   let planned = 0;
   const plan = async (swapper: Swapper): Promise<void> => {
     const id = ++planned;
-    into.textContent = "finding routes…";
+    into.textContent = "…";
     const gasValue = () => 0n;
     const outputPrice = prices.get(key(swapper.token));
     const routes = await Promise.all(
@@ -253,8 +246,8 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
     const least = kept + items.reduce((sum, { route }) => sum + route.minPaid, 0n);
     const swappedNames = items.map(({ token }) => token.symbol);
     into.textContent = items.length
-      ? `≈ ${figure(out, swapper.decimals)} ${swapper.symbol}, at least ${figure(least, swapper.decimals)}. ${kept ? `The ${swapper.symbol} comes as it is; ` : ""}${list(swappedNames)} ${items.length === 1 ? "is" : "are"} swapped, less the swap's 1% and the pools' fees.${left.length ? ` ${count(left.length, "token", "tokens")} worth less than ${left.length === 1 ? "its" : "their"} gas, or without a route, stay as ${left.length === 1 ? "it is" : "they are"}.` : ""}`
-      : `None of these tokens is worth swapping into ${swapper.symbol}: each is worth less than its gas, or has no route.`;
+      ? `≈ ${figure(out, swapper.decimals)} ${swapper.symbol}, at least ${figure(least, swapper.decimals)}, from ${list(swappedNames)}${left.length ? `; ${count(left.length, "token", "tokens")} kept` : ""}`
+      : `None worth swapping into ${swapper.symbol}`;
     const chosen = radios.find(({ checked }) => checked)?.value === "into";
     if (!items.length || !chosen) {
       if (chosen) opened.replace(claimSlips, { outcomeOf: asTheyAre });
@@ -302,7 +295,7 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
     const run = await simulate(connection.address, all).catch(() => undefined);
     if (id !== planned) return;
     if (run?.some(({ ok }) => !ok)) {
-      into.textContent = `Base refused the claim and the swap together when the page ran them, so the page offers them as they are.`;
+      into.textContent = "Base refused both together: they come as they are.";
       return opened.replace(claimSlips, { outcomeOf: asTheyAre });
     }
     if (run && found)
@@ -337,8 +330,6 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
   // Without an output whose checks passed, the swap is not offered.
   if (!select.options.length) {
     radios.find(({ value }) => value === "into")!.disabled = select.disabled = true;
-    into.textContent = swappersChecked()
-      ? "Swaps are off: this page's checks of the swappers failed."
-      : "The page has not checked the swappers yet, so it does not offer the swap.";
+    into.textContent = swappersChecked() ? "Swaps are off." : "Swappers not checked yet.";
   } else void plan(swapperOf(select.value)!);
 }

@@ -3,7 +3,7 @@ import { now, same, type Receipt } from "./chain.ts";
 import { AUTOMATIONS, DEFAULT_OUTPUT, HYDX, SWAPPERS, swapperOf, type Output, type Swapper } from "./config.ts";
 import { clone, fill, fillAddress, show, showHex } from "./dom.ts";
 import { tokensOf } from "./earnings.ts";
-import { count, figure, fraction, list, usd } from "./format.ts";
+import { count, figure, fraction, list, short, usd } from "./format.ts";
 import { earningsOf, onEarnings } from "./last-epoch.ts";
 import { pricesAt, usdOf, type Token } from "./prices.ts";
 import type { Amount } from "./receipts.ts";
@@ -12,11 +12,9 @@ import { hrefOf, type Route as PageRoute } from "./routes.ts";
 import {
   APPROVAL_GAS,
   MIDDLES,
-  exchangeOf,
   feeOf,
   findRoute,
   minimumOf,
-  poolName,
   paidOf,
   quoteAll,
   reasonOf,
@@ -154,12 +152,12 @@ const outputUsd = (amount: bigint, scanned: Scan): number | undefined => {
 function judge(row: Row, scanned: Scan): void {
   const { found } = row;
   if (row.failed) {
-    row.reason = "its routes could not be read";
+    row.reason = "not read";
     return;
   }
   if (found === undefined) return;
   if (found === null) {
-    row.reason = row.price === undefined ? "no price, no pool the swapper can use" : "no pool the swapper can use";
+    row.reason = "no route";
     return;
   }
   row.worth =
@@ -167,7 +165,7 @@ function judge(row: Row, scanned: Scan): void {
     (row.price === undefined ? undefined : usdOf(row.amount, row.token.decimals, row.price));
   const gas = found.gas + (row.allowance < row.amount ? APPROVAL_GAS : 0n);
   const cost = scanned.costs ? (gasUsd(gas, scanned.costs) ?? 0) : 0;
-  row.reason = row.worth === undefined ? "no price" : row.worth < CLEARS * cost ? "worth less than its gas" : undefined;
+  row.reason = row.worth === undefined ? "no price" : row.worth < CLEARS * cost ? "below gas" : undefined;
 }
 
 function drawRow(row: Row, scanned: Scan): void {
@@ -182,17 +180,9 @@ function drawRow(row: Row, scanned: Scan): void {
     "swap-amount": figure(row.amount, token.decimals),
     "swap-fetches": found ? ` ≈ ${figure(found.out, swapper.decimals)} ${swapper.symbol}` : "",
   });
+  // Only why a token is not ticked, or that its route is being found: the route itself is in the review.
   const routeLine = node.querySelector(".swap-route")!;
-  if (found === undefined && !row.failed) routeLine.textContent = "Finding its route…";
-  else if (found) {
-    const { hops } = found.route;
-    const names = hops.map((hop, i) => {
-      const next = scanned.tokens.get(key(hop.tokenOut))?.symbol ?? "?";
-      const name = hops.length === 1 ? poolName(hop) : poolOnly(hop);
-      return i === hops.length - 1 ? name : `${name} → ${next}`;
-    });
-    routeLine.textContent = `${names.join(" → ")}${row.reason ? `: ${row.reason}` : ""}`;
-  } else routeLine.textContent = row.reason ?? "";
+  routeLine.textContent = found === undefined && !row.failed ? "…" : (row.reason ?? "");
   show(".swap-lookalike", !!row.like, node);
   if (row.like) fill(node, { "swap-like": row.like.symbol });
   // A quote far under the page's own price says so, with both.
@@ -202,14 +192,12 @@ function drawRow(row: Row, scanned: Scan): void {
   show(".swap-check", under, node);
   if (under) {
     fill(node, {
-      "swap-check-words": `The quote, ${usd(quoted!)}, is ${fraction(1 - quoted! / page!)} under the page's own price for it, ${usd(page!)}. Check it before you swap.`,
+      "swap-check-words": `Quote ${fraction(1 - quoted! / page!)} under price`,
     });
   }
-  fillAddress(node, "swap-address", token.address);
+  fillAddress(node, "swap-address", token.address, short(token.address));
 }
 
-// An exchange's own name, without its kind of pool: "Hydrex", "Aero", "Uniswap v3".
-const poolOnly = ({ exchange }: Route["hops"][number]): string => exchangeOf(exchange).name.split(",")[0]!;
 function drawAll(): void {
   const signedIn = !!context.connection();
   form.hidden = !signedIn;
@@ -230,9 +218,9 @@ function drawAll(): void {
   show(".swap-none", !scanned.reading && !scanned.failed && !scanned.rows.length, view);
   const total = scanned.rows.length;
   status.hidden = !scanned.reading;
-  status.textContent = !total ? "Reading your tokens…" : `Finding routes: ${scanned.done} of ${total}`;
+  status.textContent = !total ? "Loading…" : `Routes: ${scanned.done} of ${total}`;
   const ticked = scanned.rows.filter((row) => row.ticked && row.found);
-  fill(view, { "swap-ticked": total ? `· ${ticked.length} of ${total} ticked` : "" });
+  fill(view, { "swap-ticked": total ? `· ${ticked.length} of ${total}` : "" });
   summarise(scanned, ticked);
 }
 
@@ -244,7 +232,7 @@ function summarise(scanned: Scan, ticked: Row[]): void {
   const splitLine = view.querySelector<HTMLElement>(".swap-split")!;
   reviewButton.disabled = !ticked.length || outputOff(swapper);
   if (!ticked.length) {
-    sells.replaceChildren(Object.assign(document.createElement("b"), { textContent: "Tick the tokens to sell." }));
+    sells.textContent = "Pick tokens to sell";
     costsLine.hidden = splitLine.hidden = true;
     return;
   }
@@ -256,12 +244,11 @@ function summarise(scanned: Scan, ticked: Row[]): void {
   const gas = BigInt(approvals) * APPROVAL_GAS + swapGas(ticked.map((row) => row.found!.route));
   const dollars = scanned.costs && gasUsd(gas, scanned.costs);
   const symbol = swapper.symbol;
-  sells.textContent = `Sells ${count(ticked.length, "token", "tokens")} for ≈ ${figure(paidOf(out), swapper.decimals)} ${symbol}, at least ${figure(least, swapper.decimals)} ${symbol}.`;
-  const calls = `${count(approvals + swaps, "call", "calls")}: ${count(approvals, "approval", "approvals")}, ${count(swaps, "swap", "swaps")}`;
-  costsLine.textContent = `Swap's 1%: ≈ ${figure(fee, swapper.decimals)} ${symbol} · Gas ${dollars === undefined ? "…" : usd(dollars)} · ${calls}`;
+  sells.textContent = `≈ ${figure(paidOf(out), swapper.decimals)} ${symbol}, at least ${figure(least, swapper.decimals)}`;
+  costsLine.textContent = `Fee ≈ ${figure(fee, swapper.decimals)} ${symbol} · Gas ${dollars === undefined ? "…" : usd(dollars)}`;
   costsLine.hidden = false;
   splitLine.hidden = swaps < 2;
-  splitLine.textContent = `This takes ${swaps} swaps: one transaction holds about 15 million gas.`;
+  splitLine.textContent = `${swaps} swaps`;
 }
 
 function rowNode(): HTMLElement {
@@ -400,21 +387,19 @@ async function readAllowances(): Promise<void> {
   const statusLine = view.querySelector<HTMLElement>(".allowances-status")!;
   if (!connection) {
     allowances = undefined;
-    statusLine.textContent = "Connect a wallet to see its approvals.";
+    statusLine.textContent = "Connect a wallet.";
     allowanceList.replaceChildren();
     show(".allowances-all", false, view);
     return tell();
   }
-  statusLine.textContent = "Reading the approvals…";
+  statusLine.textContent = "Loading…";
   const owner = connection.address;
   try {
     const found = await allowancesOf(owner, [...new Set(known().map(key))] as Address[]);
     if (!same(context.connection()?.address ?? "", owner)) return;
     allowances = found;
     const tokens = await describe(found.map(({ token }) => token));
-    statusLine.textContent = found.length
-      ? `${count(found.length, "approval is", "approvals are")} left.`
-      : "Nothing is approved: no swapper can take any token from this wallet.";
+    statusLine.textContent = found.length ? "" : "None";
     allowanceList.replaceChildren(
       ...found.map((allowance) => {
         const item = clone("allowance");
@@ -432,7 +417,7 @@ async function readAllowances(): Promise<void> {
     show(".allowances-all", found.length > 1, view);
   } catch (error) {
     console.error(error);
-    statusLine.textContent = "The approvals could not be read from Base.";
+    statusLine.textContent = "Reading the approvals failed.";
   }
   tell();
 }
@@ -510,7 +495,7 @@ async function reviewSwap(): Promise<void> {
   };
   reviewButton.disabled = true;
   reviewFailed.hidden = true;
-  reviewButton.textContent = "Running the swap through Base…";
+  reviewButton.textContent = "Simulating…";
   try {
     const opened = await openSwapReview(plan, connection, scanned.tokens, scanned.costs);
     if (opened) {
@@ -540,9 +525,8 @@ export async function openSwapReview(
   const firstSwap = approvals.length;
   if (simulated) {
     const failed = simulated.findIndex(({ ok }) => !ok);
-    if (failed >= 0 && failed < firstSwap)
-      return `Base refused a call when the page ran them: “${steps[failed]!.says}” Nothing was sent.`;
-    if (failed >= 0) return "Base refused the swap when the page ran it: the quotes may have moved. Nothing was sent.";
+    if (failed >= 0 && failed < firstSwap) return `Base refused “${steps[failed]!.says}” Nothing was sent.`;
+    if (failed >= 0) return "Base refused the swap: the quotes may have moved. Nothing was sent.";
   }
   // What each route fetches, as the simulation found it, or as quoted.
   const outcome = new Map<Route, { out: bigint; reason?: string }>();
@@ -588,7 +572,7 @@ export async function openSwapReview(
       }),
     );
     show(".line-skip", !!reason, line);
-    if (reason) fill(line, { "line-skip-words": `It would be skipped: ${reason}. It would stay in your wallet.` });
+    if (reason) fill(line, { "line-skip-words": `Skipped: ${reason}` });
     lines.append(line);
   }
   const fee = feeOf(out);
@@ -601,14 +585,12 @@ export async function openSwapReview(
     "swap-fee": `≈ −${figure(fee, swapper.decimals)} ${swapper.symbol}`,
     "swap-paid": `≈ ${figure(out - fee, swapper.decimals)} ${swapper.symbol}`,
     "swap-least": `At least ${figure(least, swapper.decimals)} ${swapper.symbol}`,
-    "swap-gas": `${dollars === undefined ? `about ${gas.toLocaleString("en-GB")} gas` : usd(dollars)} for ${count(slips.length, "call", "calls")}`,
-    "swap-simulated": simulated
-      ? "The page ran the approvals and the swap through Base just now: these figures are the swap's own."
-      : "The page could not run the swap through Base just now: these figures are the quotes'.",
+    "swap-gas": dollars === undefined ? `${gas.toLocaleString("en-GB")} gas` : usd(dollars),
+    "swap-simulated": "Not simulated: these are quotes.",
   });
+  show(".swap-simulated", !simulated, body);
   const safe = !!connection.wallet.propose;
   show(".swap-safe", safe, body);
-  show(".swap-tip", !safe, body);
   const pages: ReviewPage[] = [{ title: "What you swap", body }, { title: "What your wallet will ask" }];
   openReview({
     name: `Swap into ${swapper.symbol}`,
@@ -638,7 +620,7 @@ export async function openSwapReview(
       return {
         step,
         ...(under.length && {
-          changed: `The quotes moved: ${list(names)} would now fetch less than ${under.length === 1 ? "its" : "their"} minimum, and would stay in your wallet.`,
+          changed: `The quotes moved: ${list(names)} will be kept.`,
         }),
       };
     },
@@ -762,13 +744,13 @@ export function initSwap(given: SwapContext): void {
     addFailed.hidden = true;
     const text = input.value.trim();
     if (!/^0x[0-9a-fA-F]{40}$/.test(text)) {
-      addFailed.textContent = "That is not an address: it starts with 0x, then 40 digits and letters a to f.";
+      addFailed.textContent = "That is not an address.";
       addFailed.hidden = false;
       return;
     }
     const found = await tokensOf([text as Address]).catch(() => new Map<string, Token>());
     if (!found.size) {
-      addFailed.textContent = "No token answers at that address on Base.";
+      addFailed.textContent = "No token at that address on Base.";
       addFailed.hidden = false;
       return;
     }

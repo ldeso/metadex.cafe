@@ -47,7 +47,7 @@ the Dutch ACM say the same.
   the transaction.
 - Say "retired" and "your share of what was retired". Never "carbon neutral", "offset" or "your footprint".
 - "Carbon Impact" is a product name the law covers, so the page says what it does in the same place.
-- Home's heading says what happens, which anyone can check: "Vote, claim and swap on Base, from your own wallet".
+- Home's heading says what happens, which anyone can check: "Vote, claim and swap on Base".
 
 ## Trust
 
@@ -92,6 +92,7 @@ holding it would be invalid wherever it is used, and links and buttons would los
 | Role                   | Light     | Dark      |
 | ---------------------- | --------- | --------- |
 | Paper, the background  | `#fdfcf9` | `#18120f` |
+| Card: boxes, folds     | `#ffffff` | `#211915` |
 | Ink, text              | `#251a15` | `#f1eee9` |
 | Accent: links, buttons | `#6b3818` | `#e7d4bf` |
 | Quiet text, edges      | `#645850` | `#b7b0a7` |

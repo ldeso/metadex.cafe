@@ -1,8 +1,8 @@
 {
   "name": "metadex.cafe",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "private": true,
-  "description": "Static page for Hydrex automations and a swap of many tokens into one, on Base",
+  "description": "Vote, claim and swap on Base",
   "license": "MIT",
   "type": "module",
   "homepage": "https://metadex.cafe/",

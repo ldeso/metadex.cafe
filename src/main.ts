@@ -1,5 +1,5 @@
 import { getAddress, type Address } from "viem";
-import { onRoute, route } from "./views.ts";
+import { onRoute, route, setConnected } from "./views.ts";
 import { now, same, sawBlock } from "./chain.ts";
 import {
   AUTOMATIONS,
@@ -27,6 +27,7 @@ import {
   units,
   until,
   usd,
+  utc,
   weekStart,
   when,
 } from "./format.ts";
@@ -115,15 +116,13 @@ let clicks = 0;
 let late = new Set<bigint>();
 let under: UnderWay | undefined;
 let appFound: Found | undefined;
-// The account whose page is shown: the wallet's own, or one read by its number. `folded` once its payout fold was
-// opened or closed for it, which the page then leaves to the visitor; `tried`, when its last read began.
+// The account whose page is shown: the wallet's own, or one read by its number; `tried`, when its last read began.
 type Viewing = {
   id: bigint;
   holdings?: Holdings | undefined;
   none: boolean;
   failed: boolean;
   reading: boolean;
-  folded: boolean;
   tried: number;
 };
 let viewing: Viewing | undefined;
@@ -163,8 +162,8 @@ function waitsLine({ standing, earnings }: Entry): string {
   const tokens = new Map(earnings!.rewards.map(({ token }) => [token.address.toLowerCase(), token]));
   const value = dollars(waiting, tokens, earnings!.prices);
   const n = new Set(waiting.map(({ token }) => token.toLowerCase())).size;
-  if (!n) return "Its rewards from the epoch before last wait to be claimed.";
-  return `${unknown || late ? "At least " : ""}${usd(value)} waits in ${count(n, "token", "tokens")}.`;
+  if (!n) return "from the epoch before last";
+  return `${unknown || late ? "at least " : ""}${usd(value)} in ${count(n, "token", "tokens")}`;
 }
 // An account's page that is not the wallet's tells a payout under way from its owner's other accounts, which it reads
 // once while the account awaits its payout.
@@ -252,6 +251,7 @@ function showCarbonImpact(found: CarbonImpact): void {
     fillAddress(document, "treasury-named", treasury, "its treasury");
   }
   fillTime(document, "next-epoch", epochStart + WEEK, when);
+  fillTime(document, "epoch-end", epochStart + WEEK, utc);
   if (voted) fillTime(document, "impact-voted", voted);
   showRecords();
   tick();
@@ -267,8 +267,8 @@ function tick(): void {
   fill(document, { countdown: `in ${until(end - time)}` });
 }
 
-// Each automation's line for last epoch, on the menu and on its page: what 1,000 Earning Power earned, and what
-// reached the owner.
+// Each automation's figure for last epoch, on the menu and on its page: what reached the owner for each 1,000 Earning
+// Power. What the votes earned before the automation's cut is in its fold, against all of Hydrex.
 function showRecords(): void {
   for (const automation of AUTOMATIONS) {
     const per = perThousandOf(automation);
@@ -278,16 +278,19 @@ function showRecords(): void {
       ? "No record yet"
       : per === undefined
         ? earningsFailed(automation)
-          ? "Not read from Base yet. The page tries again in a few minutes."
+          ? "Not read yet"
           : "…"
         : per === null
           ? "No record yet"
-          : `${usd(per)} earned per 1,000 Earning Power, ${paid === undefined ? "…" : usd(per * paid)} paid to you`;
+          : paid === undefined
+            ? "…"
+            : usd(per * paid);
     const found = earningsOf(automation);
     for (const place of placesOf(automation)) {
       fill(place, {
         record,
-        "record-when": found && typeof per === "number" ? `${day(found.start)} to ${day(found.start + WEEK)}: ` : "",
+        "record-unit": typeof per === "number" ? "per 1,000 Earning Power" : "",
+        "record-when": found && typeof per === "number" ? `${day(found.start)} to ${day(found.start + WEEK)}` : "",
       });
     }
   }
@@ -425,9 +428,9 @@ function belongs(group: string, member: Member): boolean {
 }
 
 function accountKind({ lockType, end }: Account): string {
-  if (lockType === LockType.permanent) return "Protocol Account, locked for good";
-  if (lockType === LockType.rolling) return "Flex Account, rolling lock";
-  return end ? `Flex Account, lock ${end > now() ? "ends" : "ended"} ${date(end)}` : "Flex Account";
+  if (lockType === LockType.permanent) return "Protocol, permanent";
+  if (lockType === LockType.rolling) return "Flex, rolling";
+  return end ? `Flex, ${end > now() ? "ends" : "ended"} ${date(end)}` : "Flex";
 }
 
 // An account's status, in one line, in words to its owner when `own`, and about its owner otherwise.
@@ -498,7 +501,7 @@ function showAccounts(keepTicked = false): void {
       box.checked = kept.has(box.value);
     fill(section, {
       count: `· ${these.length}`,
-      "nothing-count": count(these.length, "account with nothing to vote with", "accounts with nothing to vote with"),
+      "nothing-count": count(these.length, "account without votes", "accounts without votes"),
     });
     actionable.set(section, able);
     section.hidden = !these.length;
@@ -618,7 +621,7 @@ function claim(accounts: Account[], redraw: () => void, button?: HTMLButtonEleme
   if (claiming) return;
   claiming = true;
   const words = button?.textContent;
-  if (button) Object.assign(button, { disabled: true, textContent: "Reading what waits…" });
+  if (button) Object.assign(button, { disabled: true, textContent: "Loading…" });
   openClaim(entries, connection, hooks)
     .catch(failed)
     .finally(() => {
@@ -648,7 +651,7 @@ function estimate(element: Element, accounts: Account[], automation: Automation,
     Element,
     Element,
   ];
-  const noEstimate = "Last epoch's figures could not be read, so the page gives no estimate.";
+  const noEstimate = "Not read";
   lastEarnings(automation)
     .then(() => perThousandOf(automation))
     .then(
@@ -656,16 +659,19 @@ function estimate(element: Element, accounts: Account[], automation: Automation,
         const paid = traits[automation.kind].paid();
         week.textContent =
           per === null
-            ? `${automation.name} has no record yet, so the page gives no estimate.`
+            ? "No record yet"
             : per === undefined || paid === undefined
               ? noEstimate
-              : `At last epoch's rate, ${usd(per * thousands * paid)} a week would reach you: an estimate, not a promise.`;
+              : usd(per * thousands * paid);
       },
       () => (week.textContent = noEstimate),
     );
   gasCosts()(join(accounts, automation), owner).then(
-    (dollars) => (gas.textContent = dollars === undefined ? "" : `The change costs ${usd(dollars)} in gas.`),
-    console.error,
+    (dollars) => (gas.textContent = dollars === undefined ? "Not read" : usd(dollars)),
+    (error) => {
+      console.error(error);
+      gas.textContent = "Not read";
+    },
   );
 }
 
@@ -678,7 +684,7 @@ function review(accounts: Account[], action: Action, automation?: Automation): v
   const prepare = (id: string): DocumentFragment => {
     const part = clone(id);
     fill(part, { which });
-    fillTime(part, "next", epochStart + WEEK, when);
+    fillTime(part, "next", epochStart + WEEK, utc);
     fillPlural(part, accounts.length);
     if (settings) {
       fill(part, {
@@ -725,11 +731,6 @@ function review(accounts: Account[], action: Action, automation?: Automation): v
   const { steps, from, names } = leaveAll(accounts, action === "self");
   const title = `Leave ${list(names)}`;
   const effects = prepare(from.length ? "leave-effects" : "leave-other-effects");
-  fill(effects, { automations: list(names) });
-  if (from[0]) {
-    const more = hrefOf({ view: "product", kind: from[0].kind, section: "joining" });
-    effects.querySelector(".more-leaving")!.setAttribute("href", more);
-  }
   openReview({
     name: title,
     pages: [{ title, body: effects }],
@@ -773,27 +774,17 @@ function showApp(): void {
     const { owner, accounts, epochStart } = holdings;
     for (const account of accounts) {
       const status = statusOf(account, owner, now(), epochStart);
-      const change = { link: hrefOf({ view: "position", id: account.id }), label: "Change it" };
+      const change = { link: hrefOf({ view: "position", id: account.id }), label: "Change" };
       if (status.kind === "stopped")
         items.push(
-          need(
-            "stopped",
-            `#${account.id} is in ${status.name}, which stopped on ${day(status.voted)}. It earns nothing.`,
-            change,
-          ),
+          need("stopped", `#${account.id} earns nothing: ${status.name} stopped ${day(status.voted)}`, change),
         );
       if (status.kind === "partly")
-        items.push(
-          need(
-            "stopped",
-            `#${account.id} is partly in ${status.automation.name}: only some of its approvals are set.`,
-            change,
-          ),
-        );
+        items.push(need("stopped", `#${account.id} is partly in ${status.automation.name}`, change));
     }
     for (const entry of overdue()) {
       items.push(
-        need("stopped", `#${entry.account.id}'s payout is overdue: ${waitsLine(entry)}`, {
+        need("stopped", `#${entry.account.id}: payout overdue, ${waitsLine(entry)}`, {
           label: "Claim now",
           button: (event) => claim([entry.account], showApp, event.currentTarget as HTMLButtonElement),
         }),
@@ -803,15 +794,11 @@ function showApp(): void {
   const left = connection ? allowancesLeft() : undefined;
   if (left?.length) {
     items.push(
-      need(
-        "idle",
-        `${count(left.length, "approval", "approvals")} to the swappers ${left.length === 1 ? "is" : "are"} left, from a swap that did not go through.`,
-        {
-          label: "Reset",
-          // The approvals left when clicked, which a later read may have changed.
-          button: () => void resetReview(allowancesLeft() ?? []),
-        },
-      ),
+      need("idle", `${count(left.length, "approval", "approvals")} left to the swappers`, {
+        label: "Reset",
+        // The approvals left when clicked, which a later read may have changed.
+        button: () => void resetReview(allowancesLeft() ?? []),
+      }),
     );
   }
   // Drawn again only when its lines change, so that a button keeps its focus between ticks.
@@ -843,7 +830,7 @@ function showApp(): void {
       }).length;
       return n ? [`${n} in ${automation.name}`] : [];
     });
-    hydrexYours.textContent = `Yours: ${count(full.length, "account", "accounts")}${counts.length ? `, ${counts.join(", ")}` : ""}`;
+    hydrexYours.textContent = [count(full.length, "account", "accounts"), ...counts].join(" · ");
   }
   const swapYours = appView.querySelector<HTMLElement>(".swap-yours")!;
   const line = connection ? swapLine() : undefined;
@@ -851,10 +838,10 @@ function showApp(): void {
   if (line) {
     swapYours.textContent =
       line.reading && !line.count
-        ? "Yours: …"
+        ? "…"
         : line.count
-          ? `Yours: ${count(line.count, "token", "tokens")} worth swapping, ${usd(line.usd)}${line.reading ? ", …" : ""}`
-          : "Yours: no token worth swapping";
+          ? `${count(line.count, "token", "tokens")} · ${usd(line.usd)}${line.reading ? " · …" : ""}`
+          : "Nothing to swap";
   }
   void showAllows(holdings, left);
   // A payout becomes overdue as time passes: the groups' Claim follows.
@@ -873,19 +860,17 @@ async function showAllows(
   holdings: Holdings | undefined,
   left: { token: Address; spender: Address; amount: bigint }[] | undefined,
 ): Promise<void> {
-  const fold = appView.querySelector<HTMLElement>(".allows")!;
-  fold.hidden = !connection;
-  if (!connection) return;
+  show(".allows-open", !!connection, appView);
+  if (!connection) return appView.querySelector<HTMLElement>(".allows")!.hidePopover?.();
   const lines = (holdings?.accounts ?? []).flatMap((account) => {
     const theirs = AUTOMATIONS.filter((automation) => canLeave(account, automation)).map((automation) => {
       const votes = same(account.delegate, automation.address);
       const claims = same(account.claimer, automation.address);
-      const what =
-        votes && claims ? "vote with it and claim its rewards" : votes ? "vote with it" : "claim its rewards";
-      return { words: `#${account.id}: ${automation.name} can ${what}.`, action: "leave" as Action };
+      const what = votes && claims ? "votes and claims" : votes ? "votes" : "claims";
+      return { words: `#${account.id} · ${automation.name}: ${what}`, action: "leave" as Action };
     });
     const other = automationName(account.delegate);
-    if (other) theirs.push({ words: `#${account.id}: Hydrex's ${other} automation can vote with it.`, action: "self" });
+    if (other) theirs.push({ words: `#${account.id} · ${other}: votes`, action: "self" });
     return theirs.map((line) => ({ ...line, account }));
   });
   const drawn = [
@@ -1024,18 +1009,13 @@ function showPosition(): void {
   if (status.kind === "stopped") fillTime(view, "position-since", status.since);
   const underWay = own ? under : ownerUnder;
   show(".position-underway", !!underWay?.left.some((entry) => entry.account.id === account.id), view);
-  // Carbon Impact pays an owner's accounts to one address, once read, which shows where it is not the owner's own. The
-  // fold opens by itself once: then it stays as the visitor leaves it.
+  // Carbon Impact pays an owner's accounts to one address, once read.
   const inImpact = [account.delegate, account.claimer, account.delegateAtStart].some((address) =>
     same(address, CARBON_IMPACT.address),
   );
   const paidTo = inImpact ? payout : undefined;
-  const fold = view.querySelector<HTMLDetailsElement>(".position-payout")!;
-  fold.hidden = !paidTo;
+  show(".position-payout-open", !!paidTo, view);
   if (paidTo) {
-    if (!target.folded) fold.open = !same(paidTo, owner);
-    target.folded = true;
-    fillAddress(view, "payout-owner", owner);
     fillAddress(view, "payout-to", paidTo);
     show(".payout-itself", same(paidTo, owner), view);
   }
@@ -1065,7 +1045,7 @@ function showActions(account: Account | undefined): void {
 onRoute((next) => {
   if (next.view !== "position") return;
   if (viewing?.id !== next.id) {
-    viewing = { id: next.id, none: false, failed: false, reading: false, folded: false, tried: 0 };
+    viewing = { id: next.id, none: false, failed: false, reading: false, tried: 0 };
     [positionPayouts, ownerPayouts].forEach((each) => each.forget());
     ownerUnder = ownerRead = undefined;
   }
@@ -1073,6 +1053,7 @@ onRoute((next) => {
 });
 
 function showConnection(): void {
+  setConnected(!!connection);
   show(".wallet-slot", !connection);
   show(".to-app .open", !connection);
   show(".to-app .wallet-state", !!connection);

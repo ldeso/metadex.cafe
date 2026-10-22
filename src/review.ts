@@ -126,13 +126,13 @@ function fieldOf({ label, name, code, words, under }: Field): DocumentFragment {
 // compare with Safe{Wallet}.
 function slip(step: Slip, i: number, n: number, safe: boolean, checkHref: string): DocumentFragment {
   const item = clone("step");
-  const which = n > 1 ? ` · ${safe ? "call " : ""}${i + 1} of ${n}` : "";
+  const which = n > 1 ? `${i + 1} of ${n}` : "";
   fill(item, {
-    count: safe ? `In a Safe${which || " · one transaction to sign"}` : `Your wallet will ask${which}`,
+    count: safe ? ["Safe", which].filter(Boolean).join(" · ") : which,
     says: step.says,
     on: step.on,
     function: step.call,
-    call: `The call above, in ${(step.data.length - 2) / 2} bytes:`,
+    call: `${(step.data.length - 2) / 2} bytes:`,
     "slip-note": step.note ?? "The selector, then each 32-byte word on two lines.",
   });
   showHex(item.querySelector(".to")!, step.to);
@@ -208,7 +208,7 @@ function showPage(page: number): void {
   const { name, titles } = current;
   current.page = page;
   title.textContent = titles[page]!;
-  stepCount.textContent = `${name}: step ${page + 1} of ${titles.length}`;
+  stepCount.textContent = `${name} · ${page + 1} of ${titles.length}`;
   stepCount.hidden = titles.length === 1;
   [...pageList.children].forEach((element, i) => ((element as HTMLElement).hidden = i !== page));
   // A review with nothing to send has no calls to show.
@@ -222,14 +222,10 @@ const atomic = (state: Review): boolean => !!state.atomic && !!state.capabilitie
 function howText(state: Review): string {
   const n = state.steps.length;
   if (state.connection.wallet.propose) {
-    return n === 1
-      ? "One Safe transaction. Safe{Wallet} sets its nonce; its other fields are these:"
-      : `One Safe transaction, with ${n} calls. Safe{Wallet} sends them through its MultiSend contract, with operation 1, and sets the nonce. The calls:`;
+    return n === 1 ? "One Safe transaction" : `One Safe transaction, ${n} calls`;
   }
-  if (state.batch) {
-    return `One prompt, with ${n} calls${atomic(state) ? ", which go through together or not at all" : ", sent one after the other"}:`;
-  }
-  return n === 1 ? "One transaction:" : `${count(n, "transaction", "transactions")}, one after the other:`;
+  if (state.batch) return `One prompt, ${n} calls${atomic(state) ? ", all or nothing" : ""}`;
+  return n === 1 ? "" : count(n, "transaction", "transactions");
 }
 
 export function refreshReview(): void {
@@ -287,7 +283,7 @@ async function proposeAll(state: Review, propose: NonNullable<Wallet["propose"]>
   say(state, "Waiting for your wallet…");
   await proposing;
   state.submitted = state.finished = true;
-  say(state, "Proposed. The Safe's owners sign it in Safe{Wallet}; this page changes once it executes.");
+  say(state, "Proposed. Sign it in Safe{Wallet}.");
   if (state !== current) return;
   const proposed = clone("proposed");
   proposed.querySelector(".co-signers")!.setAttribute("href", state.checkHref);
@@ -326,7 +322,7 @@ async function sendNext(state: Review): Promise<void> {
     state.receipts.push(receipt);
   }
   state.finished = !ok || done.length === steps.length;
-  if (!receipt) say(state, "Sent. Your wallet shows when Base includes it; reload this page then.", hashes);
+  if (!receipt) say(state, "Sent. Reload once Base includes it.", hashes);
   else if (!ok) say(state, `A transaction failed on Base.${wentThrough(state)}`, hashes);
   else if (state.finished) await finish(state);
   else {
@@ -363,7 +359,7 @@ async function sendBatch(state: Review): Promise<void> {
     // The calls then go one by one, from the next click.
     state.batch = false;
     refreshReview();
-    return say(state, "Your wallet could not send the calls in one prompt. Confirm them one by one instead.");
+    return say(state, "Your wallet can't send these in one prompt: confirm them one by one.");
   }
   state.submitted = true;
   refreshReview();
@@ -371,7 +367,7 @@ async function sendBatch(state: Review): Promise<void> {
   const status = await waitForCalls(state.connection, id);
   state.finished = true;
   const hashes = status?.receipts.map(({ transactionHash }) => transactionHash) ?? [];
-  if (!status) return say(state, "Sent. Your wallet shows when Base includes it; reload this page then.");
+  if (!status) return say(state, "Sent. Reload once Base includes it.");
   if (status.state === "failed")
     return say(state, "The calls failed on Base, or your wallet did not send them.", hashes);
   state.done = hashes;

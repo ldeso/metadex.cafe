@@ -104,14 +104,30 @@ test("each pair of tokens is looked up in every factory, every fee tier and ever
   });
 });
 
-test("the twelve exchanges are in the order of the swapper's enum", () => {
+test("the page lists each of the swapper's twelve exchanges once, by its place in the swapper's enum", () => {
   assert.deepEqual(
-    EXCHANGES.map(({ id }) => id),
+    EXCHANGES.map(({ id }) => id).sort((a, b) => a - b),
     Array.from({ length: 12 }, (_, i) => i),
   );
+  assert.deepEqual(
+    [...new Set(EXCHANGES.map(({ name }) => name))],
+    [
+      "Aero Basic Pools",
+      "Aero Slipstream",
+      "Aerodrome Basic Pools",
+      "Aerodrome Slipstream V3",
+      "Aerodrome Slipstream V2",
+      "Aerodrome Slipstream",
+      "Uniswap v4",
+      "Uniswap v3",
+      "Uniswap v2",
+      "Hydrex Classic Pools",
+      "Hydrex Integral",
+    ],
+  );
   assert.equal(poolName(hop(10, USDC, 500)), "Uniswap v3 0.05%");
-  assert.equal(poolName(hop(4, USDC, 0, 100)), "Aero, Slipstream, tick spacing 100");
-  assert.equal(poolName(hop(0)), "Hydrex, Algebra pools");
+  assert.equal(poolName(hop(4, USDC, 0, 100)), "Aero Slipstream, tick spacing 100");
+  assert.equal(poolName(hop(0)), "Hydrex Integral");
 });
 
 test("Aero's classic pools win a hop only by more than 1%, as their tax is not in the quote", () => {

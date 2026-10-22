@@ -91,8 +91,10 @@ test("each automation has a kind, a name and the approvals of its own, and AutoM
   assert.match(facts, /<dd>1% of each claim<\/dd>/);
   assert.match(facts, /<dd[^>]*>1%, fixed in its code<\/dd>/);
   assert.ok(facts.includes(`/address/${AUTOMAXI_TREASURY}"`));
-  for (const { kind, codeHash } of AUTOMATIONS) {
-    assert.ok(productOf(html, kind).includes(codeHash), `${kind}'s page shows the code hash the page checks`);
+  // The page checks each automation's code hash, and shows only its address: the hash is no use to read.
+  for (const { kind, codeHash, address } of AUTOMATIONS) {
+    assert.ok(!html.includes(codeHash), `${kind}'s code hash is not on the page`);
+    assert.ok(productOf(html, kind).includes(`/address/${address}"`), `${kind}'s page links its address`);
   }
   assert.equal(AUTOMAXI.address, getAddress(AUTOMAXI.address));
 });
@@ -108,13 +110,16 @@ test("each automation's page has the same parts, in the same order, and lists ev
     const sections = [...page.matchAll(/data-section="([^"]+)"/g)].map(([, section]) => section);
     assert.deepEqual(sections, PRODUCT_SECTIONS[kind], kind);
     const parts = [...page.matchAll(/<(h1|h2)[^>]*>([^<]+)</g)].map(([, , text]) => text!.trim());
-    assert.deepEqual(parts, [
-      AUTOMATIONS.find((each) => each.kind === kind)!.name,
-      "Your accounts in it",
-      "Your accounts that can join",
-      "Last epoch",
-      "Fee facts",
-    ]);
+    // Only the name and the accounts are headings: the rest of the page is its key figures, and popups.
+    assert.deepEqual(parts, [AUTOMATIONS.find((each) => each.kind === kind)!.name, "Your accounts", "Can join"]);
+    // Each popup opens from an info button, and holds a section or none: each section is in one.
+    const pops = [...page.matchAll(/<div\s+class="pop[^"]*"\s+id="([^"]+)"\s+popover\b/g)].map(([, id]) => id!);
+    for (const id of pops) assert.match(page, new RegExp(`popovertarget="${id}"\\s+aria-label=`), `${id} has a button`);
+    const inPops = pops.flatMap((id) => {
+      const pop = page.slice(page.indexOf(`id="${id}"`)).split(/<div\s+class="pop[\s"]/)[0]!;
+      return [...pop.matchAll(/data-section="([^"]+)"/g)].map(([, section]) => section);
+    });
+    assert.deepEqual(inPops, PRODUCT_SECTIONS[kind], `${kind}'s sections are in its popups`);
     const checks = [...page.matchAll(/data-check="([^"]+)"/g)].map(([, check]) => check);
     assert.deepEqual([...checks].sort(), [...failing[kind]!].sort(), kind);
   }
@@ -188,7 +193,7 @@ test("the page names no operator, links to no repository but Hydrex's, and shows
   assert.ok(automaxi.includes(`https://repo.sourcify.dev/8453/${AUTOMAXI.address}`));
 });
 
-test("each swapper has its output, a checksummed address and a code hash, and the swap's page shows them all", async () => {
+test("each swapper has its output, a checksummed address and a code hash, and the swap's page links them all", async () => {
   const { SWAPPERS, EXCHANGES, SWAP_TREASURY, AUTOMAXI_TREASURY: treasury } = await import("../src/config.ts");
   const tokens = (await import("../src/base-tokens.json", { with: { type: "json" } })).default;
   const html = read("index.html");
@@ -202,7 +207,7 @@ test("each swapper has its output, a checksummed address and a code hash, and th
     assert.equal(getAddress(token), token);
     assert.match(codeHash, /^0x[0-9a-f]{64}$/);
     assert.ok(swap.includes(`/address/${address}#code`), `${symbol}'s swapper is linked to its verified source`);
-    assert.ok(swap.includes(codeHash), `${symbol}'s code hash is on the page`);
+    assert.ok(!html.includes(codeHash), `${symbol}'s code hash is not on the page`);
     // Every output is on the page's list of tokens.
     assert.ok(
       tokens.some((listed) => listed.address === token && listed.symbol === symbol),
@@ -211,14 +216,20 @@ test("each swapper has its output, a checksummed address and a code hash, and th
   }
   assert.equal(SWAP_TREASURY, treasury);
   assert.equal(EXCHANGES.length, 12);
-  for (const { factory } of EXCHANGES) {
-    assert.equal(getAddress(factory), factory);
-    assert.ok(swap.includes(`/address/${factory}"`), `${factory} is on the page`);
-  }
+  // The factories, in the order the page checks them, each under its exchange's name.
+  for (const { factory } of EXCHANGES) assert.equal(getAddress(factory), factory);
+  const listed = [...swap.matchAll(/<dt>([^<]+)<\/dt>\s*<dd>([\s\S]*?)<\/dd>/g)].flatMap(([, name, value]) =>
+    [...value!.matchAll(/\/address\/(0x[0-9a-fA-F]{40})"/g)].map(([, address]) => `${name} ${address}`),
+  );
+  assert.deepEqual(
+    listed.filter((line) => EXCHANGES.some(({ factory }) => line.endsWith(factory))),
+    EXCHANGES.map(({ name, factory }) => `${name} ${factory}`),
+  );
   // The page's list of tokens: checksummed, each once.
   for (const { address } of tokens) assert.equal(getAddress(address), address);
   assert.equal(new Set(tokens.map(({ address }) => address)).size, tokens.length);
-  // Its folds, its fee facts in the same six rows as every product, and every check that can fail.
+  // Its sections, its costs, each as one row, and every check that can fail. Its fee is in its code: no row says who can
+  // change it, or where it goes.
   const { SWAP_SECTIONS } = await import("../src/routes.ts");
   assert.deepEqual(
     [...swap.matchAll(/data-section="([^"]+)"/g)].map(([, section]) => section),
@@ -227,9 +238,9 @@ test("each swapper has its output, a checksummed address and a code hash, and th
   const facts = /<dl class="fee-facts">[\s\S]*?<\/dl>/.exec(swap)?.[0] ?? "";
   assert.deepEqual(
     [...facts.matchAll(/<dt>([^<]+)<\/dt>/g)].map(([, row]) => row),
-    ["Taken", "The most it can become", "Goes to", "When", "Other costs", "Who can change it"],
+    ["Swap fee", "Pool fees", "Price impact", "Slippage", "Gas"],
   );
-  assert.ok(facts.includes(`/address/${SWAP_TREASURY}"`));
+  assert.ok(!swap.includes(SWAP_TREASURY) && !swap.includes("2-of-3"));
   assert.deepEqual(
     [...swap.matchAll(/data-check="([^"]+)"/g)].map(([, check]) => check),
     ["chain", "swap-code", "swap-output", "swap-treasury", "swap-fee", "swap-exchanges"],
@@ -237,8 +248,7 @@ test("each swapper has its output, a checksummed address and a code hash, and th
 });
 
 test("AutoMaxi's page no longer says that owners can claim on Hydrex without its fee, but still does for leaving", () => {
-  const joining =
-    /data-section="joining"[\s\S]*?<\/details>/.exec(productOf(read("index.html"), "automaxi"))?.[0] ?? "";
+  const joining = /data-section="joining"[\s\S]*?<\/dl>/.exec(productOf(read("index.html"), "automaxi"))?.[0] ?? "";
   assert.doesNotMatch(joining, /claim on Hydrex yourself/);
-  assert.match(joining, /what nobody has claimed through it is yours to claim on Hydrex/);
+  assert.match(joining, /what\s+nobody\s+has\s+claimed\s+through\s+it\s+is\s+yours\s+to\s+claim\s+on\s+Hydrex/);
 });

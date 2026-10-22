@@ -147,21 +147,22 @@ export const SWAP_FEE_BPS = 100n;
 export const SWAP_TREASURY: Address = AUTOMAXI_TREASURY;
 export const HYDX: Address = "0x00000e7efa313F4E11Bfff432471eD9423AC6B30";
 
-// The exchanges each swapper trades on, in the order of its Exchange enum and of exchanges(), with the factory it checks
-// each pool against. Uniswap v4's is its PoolManager, which holds every pool.
+// The exchanges each swapper trades on, in the order the page lists and checks them. `id` is each one's place in the
+// swapper's Exchange enum and in exchanges(), with the factory it checks each pool against. Aero's basic pools have a
+// factory for volatile pools and one for stable pools. Uniswap v4's is its PoolManager, which holds every pool.
 export type ExchangeKind = "algebra" | "pair" | "solidly" | "slipstream" | "aerodrome" | "v2" | "v3" | "v4";
 export type Exchange = { id: number; name: string; kind: ExchangeKind; factory: Address };
 export const EXCHANGES: Exchange[] = [
-  { id: 0, name: "Hydrex, Algebra pools", kind: "algebra", factory: ALGEBRA_FACTORY },
-  { id: 1, name: "Hydrex, classic pools", kind: "pair", factory: PAIR_FACTORY },
-  { id: 2, name: "Aero, volatile pools", kind: "solidly", factory: "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2" },
-  { id: 3, name: "Aero, stable pools", kind: "solidly", factory: "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D" },
-  { id: 4, name: "Aero, Slipstream", kind: "slipstream", factory: "0x9CB220581b91b0C83223012FE69688b92aD07a76" },
-  { id: 5, name: "Aerodrome, classic pools", kind: "aerodrome", factory: "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" },
-  { id: 6, name: "Aerodrome, Slipstream", kind: "slipstream", factory: "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A" },
-  { id: 7, name: "Aerodrome, Slipstream 2", kind: "slipstream", factory: "0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a" },
-  { id: 8, name: "Aerodrome, Slipstream 3", kind: "slipstream", factory: "0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef" },
-  { id: 9, name: "Uniswap v2", kind: "v2", factory: "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6" },
-  { id: 10, name: "Uniswap v3", kind: "v3", factory: "0x33128a8fC17869897dcE68Ed026d694621f6FDfD" },
+  { id: 2, name: "Aero Basic Pools", kind: "solidly", factory: "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2" },
+  { id: 3, name: "Aero Basic Pools", kind: "solidly", factory: "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D" },
+  { id: 4, name: "Aero Slipstream", kind: "slipstream", factory: "0x9CB220581b91b0C83223012FE69688b92aD07a76" },
+  { id: 5, name: "Aerodrome Basic Pools", kind: "aerodrome", factory: "0x420DD381b31aEf6683db6B902084cB0FFECe40Da" },
+  { id: 8, name: "Aerodrome Slipstream V3", kind: "slipstream", factory: "0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef" },
+  { id: 7, name: "Aerodrome Slipstream V2", kind: "slipstream", factory: "0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a" },
+  { id: 6, name: "Aerodrome Slipstream", kind: "slipstream", factory: "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A" },
   { id: 11, name: "Uniswap v4", kind: "v4", factory: "0x498581fF718922c3f8e6A244956aF099B2652b2b" },
+  { id: 10, name: "Uniswap v3", kind: "v3", factory: "0x33128a8fC17869897dcE68Ed026d694621f6FDfD" },
+  { id: 9, name: "Uniswap v2", kind: "v2", factory: "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6" },
+  { id: 1, name: "Hydrex Classic Pools", kind: "pair", factory: PAIR_FACTORY },
+  { id: 0, name: "Hydrex Integral", kind: "algebra", factory: ALGEBRA_FACTORY },
 ];

@@ -102,10 +102,7 @@ export const short = (address: string): string => `${address.slice(0, 6)}…${ad
 // Hex in groups of four. An address or a hash is one line; calldata is its selector, then a line per 32-byte word.
 export function hexLines(hex: string): string[][] {
   const groups = (digits: string): string[] => digits.match(/.{1,4}/g) ?? [];
-  if (hex.length === 42 || hex.length === 66) {
-    const [first = "", ...rest] = groups(hex.slice(2));
-    return [[`0x${first}`, ...rest]];
-  }
+  if (hex.length === 42 || hex.length === 66) return [["0x", ...groups(hex.slice(2))]];
   return [[hex.slice(0, 10)], ...(hex.slice(10).match(/.{1,64}/g) ?? []).map(groups)];
 }
 

@@ -36,7 +36,7 @@ export const gasUsd = (gas: bigint, { gasPrice, ethUsd }: Costs): number | undef
 const symbolOf = (tokens: Map<string, Token>, address: Address): string =>
   tokens.get(address.toLowerCase())?.symbol ?? address;
 
-// A route's hops in words, around the addresses of their pools: "Hydrex, Algebra pools 0x… to WETH, Uniswap v3 0.05%
+// A route's hops in words, around the addresses of their pools: "Hydrex Integral 0x… to WETH, Uniswap v3 0.05%
 // 0x… to USDC". Uniswap v4's pools have no address of their own.
 export function pathWords(route: Route, tokens: Map<string, Token>): NonNullable<Field["words"]> {
   return route.hops.flatMap((hop, i) => [
@@ -46,7 +46,7 @@ export function pathWords(route: Route, tokens: Map<string, Token>): NonNullable
   ]);
 }
 
-// A route in words: "41.2 AVNT, Hydrex, Algebra pools 0x… to WETH, Uniswap v3 0.05% 0x… to USDC, at least 0.60 USDC". A
+// A route in words: "41.2 AVNT, Hydrex Integral 0x… to WETH, Uniswap v3 0.05% 0x… to USDC, at least 0.60 USDC". A
 // swap of a whole balance, as after a claim, says so instead of an amount.
 export function routeWords(
   route: Route,

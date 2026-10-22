@@ -9,6 +9,57 @@ Read from version 0.5.1, commit `682c47e`, on 20 Oct 2026: every view at 1280 an
 with two owners' wallets on Base. One holds an account in Carbon Impact and an account that votes itself; the other
 holds two accounts in automations that stopped.
 
+## Second pass: fewer words
+
+Done on 21 Oct 2026, from version 0.6.4, and made stricter the same day after review. Where it disagrees with the rest
+of this file, it wins.
+
+- **No sentence that the page's controls already say.** A view is its heading, then what you act on. Home is "Vote,
+  claim and swap on Base" and its one button, which stands in for the header's: no lead, and no line on the stopped
+  automations, which the App's Needs you shows to the owners they concern. No hints such as "Tick the accounts to
+  change".
+- **Labels, not prose.** What a product does is in its figures: Takes, Pays in, Last epoch, then Retired or Controlled
+  by. Each choice on the menu has the first three. Carbon Impact's name sits beside "33.33% retired" and "Pays in kVCM",
+  which say what it does ([brand.md](brand.md#what-the-page-may-claim)).
+- **The only sentences left warn of what cannot be undone:** in the join review, that joining also lets the automation
+  claim the rewards not claimed yet, with "Claim them on Hydrex first".
+- **Folds hold the rest, closed, as rows of a label and a value:** fees, the record against all of Hydrex, joining and
+  leaving, who controls what, the carbon credits, the checks, About's facts, each call's fields in the review. They keep
+  every address, hash and check, and drop the explanations. An address that points into a fold opens it.
+- **Statuses and messages in a word or two:** "In USDC · stopped Wed 9 Sept", "Payout late", "Reading the payouts
+  failed. Try again", "Loading…". Only the exception is said: the swap's review says "Not simulated" when it could not
+  run the swap through Base, and nothing when it could. A token's row says why it is not ticked, and not its route,
+  which the review shows.
+- **One look everywhere:** one spacing scale, one radius, a card for every item of a list (choices, accounts, tokens,
+  what needs you, approvals, folds), h1 and h2 in Young Serif, everything else in the sans, labels in the mono.
+
+Measured with a wallet on Base, at 1280 px: words shown on Home went from 60 to 8, on About from 558 to 24, on Carbon
+Impact's page from 221 to 76, on the accounts of a wallet with stopped automations from 227 to 98, and in the join
+review from 178 to 50.
+
+## Third pass: details on demand
+
+The owner's review of the second pass, on 21 Oct 2026: a group's heading read as a link and a heading at once; every
+page led back to "App", which Home already is once a wallet is connected; and the folds still showed too much.
+
+- **Details open from an info button, as a popup.** A small round "i" sits beside what it explains: the status, a key
+  figure, a group of accounts, About's rows. It opens a popup over the page with a title and a close button, light to
+  dismiss; on a phone, a sheet from the foot of the screen. Nothing of the details shows until then: no folds, no
+  summaries. An address still points into one, such as `#hydrex/carbon-impact/check`, and opens it; it goes from the
+  address once the popup closes. A browser without popups shows them at the foot of the view, and hides the buttons.
+- **A call's fields** in the review open from the same button, at the corner of its slip.
+- **Home is the App once a wallet is connected,** so the name in the header leads there. The breadcrumb is gone: a page
+  within Hydrex has one link back to it, "‹ Hydrex", and the others have none.
+- **Addresses, not code hashes.** A contract shows by its address, linked to Basescan; the page still checks its code
+  hash, but no longer shows it. An address is "0x", then groups of four. It stays on one line where it fits; otherwise
+  it breaks once, in the middle, its second half's groups under the first's, both halves ending flush.
+- **The swap's costs, each as one row:** its fee, pools' fees, price impact, slippage and gas. Its fee is in its code,
+  so no row says who can change it. Its contracts are listed by name, without numbers, in the order the page checks
+  them: the swappers, then the exchanges, from Aero's to Hydrex's.
+- **About** keeps the official address, the cookies stored (none), the version and where its figures come from.
+- **A heading is never a link.** The groups of accounts are plain headings; a card that leads somewhere is a card, with
+  a chevron at its end, its title in the ink colour.
+
 ## Givens
 
 - The page is not published. No address, anchor or link has to keep working.

@@ -482,9 +482,9 @@ finding routes for many tokens strains the free RPCs' limits, the page finds the
   or upgrade code that runs in the swap, which can worsen a price down to the minimum, but none can take the tokens. One
   line per exchange, from the swapper's own table.
 - **Approvals you gave the swappers,** as above.
-- **Check it:** the six swappers with their code hashes; the twelve factories, which the page checks against
-  `exchanges()`; what the page checks (code, `outputToken`, `TREASURY`, `FEE_BPS`, the factories); how routes are found;
-  how a quote can differ from the swap; swapping without this page, from Basescan; and for co-signers.
+- **Check it:** the six swappers; the twelve factories, which the page checks against `exchanges()`; what the page
+  checks (code, `outputToken`, `TREASURY`, `FEE_BPS`, the factories); how routes are found; how a quote can differ from
+  the swap; swapping without this page, from Basescan; and for co-signers.
 
 ## Rules for every product
 

@@ -35,9 +35,17 @@
   --sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
   --serif: "Young Serif", Georgia, serif;
   --mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+  /* One scale for every gap, and one radius for every box. */
+  --gap-xs: 0.25rem;
+  --gap-s: 0.5rem;
+  --gap: 0.75rem;
+  --gap-l: 1rem;
+  --gap-xl: 2rem;
+  --radius: 12px;
   /* Light colours first, for browsers without light-dark(). */
   color-scheme: light;
   --paper: #fdfcf9;
+  --card: #ffffff;
   --ink: #251a15;
   --quiet: #645850;
   --line: #d9d3cc;
@@ -56,6 +64,7 @@
   :root {
     color-scheme: light dark;
     --paper: light-dark(#fdfcf9, #18120f);
+    --card: light-dark(#ffffff, #211915);
     --ink: light-dark(#251a15, #f1eee9);
     --quiet: light-dark(#645850, #b7b0a7);
     --line: light-dark(#d9d3cc, #413933);
@@ -70,10 +79,9 @@
   }
 }
 body {
-  max-inline-size: 40rem;
-  margin-inline: auto;
-  padding-inline: 1rem;
-  padding-block-end: 2rem;
+  max-inline-size: 42rem;
+  margin: 0 auto;
+  padding-inline: 1.25rem;
   overflow-wrap: anywhere;
   background: var(--paper);
   color: var(--ink);
@@ -82,42 +90,65 @@ body {
   display: none !important;
 }
 
-/* Young Serif has one weight, so headings must not be bold. */
+/* Type: one serif for the name and the h1 and h2 headings, which has one weight; text in the sans; figures, hex and
+   labels in the mono. */
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+dl,
+dd,
+fieldset {
+  margin: 0;
+}
 h1,
 h2 {
   font-family: var(--serif);
   font-weight: 400;
+  line-height: 1.2;
 }
-.view > h1 {
-  font-size: 1.75rem;
-  line-height: 1.25;
+h1 {
+  font-size: 2rem;
+  letter-spacing: -0.01em;
 }
-.view[data-view="home"] h1 {
-  font-size: 1.875rem;
-  line-height: 1.15;
+h2 {
+  font-size: 1.25rem;
+}
+h3 {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+ul,
+ol {
+  padding-inline-start: 1.25rem;
+}
+li + li {
+  margin-block-start: var(--gap-s);
 }
 code {
   font-family: var(--mono);
 }
-/* Hex in groups of four, apart by margins rather than spaces, so that a copy is the plain hex. See showHex(). A link
-   has one underline under all the groups, not one under each. */
-.hex {
-  overflow-wrap: normal;
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
 }
-a.hex {
-  text-decoration: none;
-  border-block-end: 1px solid currentColor;
+a:hover {
+  text-decoration-thickness: 2px;
 }
-.hex > span:not(:last-child) {
-  margin-inline-end: 0.4ch;
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
-.hex > .line::before {
-  content: "\A";
-  white-space: pre;
+.small {
+  color: var(--quiet);
+  font-size: 0.875rem;
 }
 /* Labels: small capitals in the mono face. */
 .label,
-dl.details dt,
+.facts dt,
 dialog .step-count,
 .fields dt,
 .lines dt {
@@ -132,43 +163,246 @@ dialog .step-count,
 .lines dt {
   color: var(--ink);
 }
-table {
+table,
+.facts dd {
   font-variant-numeric: tabular-nums;
 }
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* Hex in groups of four, apart by margins rather than spaces, so that a copy is the plain hex. See showHex(). An address
+   or a hash stays on one line where it fits; otherwise it breaks once, in the middle, its second half under the first's
+   groups, past the "0x". The gap between the halves is a space of the stylesheet's, which a line's end drops, so that
+   both halves end flush. A link has one underline under each half, not one under each group. */
+.hex {
+  overflow-wrap: normal;
+}
+.hex > span:not(.half):not(:last-child),
+.half > span:not(:last-child) {
+  margin-inline-end: 0.4ch;
+}
+.hex > .line::before {
+  content: "\A";
+  white-space: pre;
+}
+.hex.halves {
+  display: inline-block;
+  padding-inline-start: 2.4ch;
+  text-indent: -2.4ch;
+  baseline-source: first;
+}
+.half {
+  white-space: nowrap;
+}
+.half:first-child::after {
+  content: " ";
+  word-spacing: -0.6ch;
+}
+a.hex {
+  text-decoration: none;
+}
+a.hex > .half {
+  border-block-end: 1px solid currentColor;
+}
 
+/* The header, the same on every view: the name, and the one button. */
 header.site {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 1rem;
-  padding-block: 0.75rem;
+  gap: var(--gap-s) var(--gap-l);
+  padding-block: var(--gap-l);
   border-block-end: 1px solid var(--line);
 }
 header.site .name {
   color: inherit;
   font-family: var(--serif);
-  font-weight: 400;
   font-size: 1.25rem;
   text-decoration: none;
 }
-header.site nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
+/* On Home, its own button opens the app, until a wallet is connected. */
+:root[data-view="home"] header.site .to-app:has(.wallet-state[hidden]) {
+  visibility: hidden;
+}
+header.site .button {
+  min-block-size: 2.5rem;
+  padding-block: 0.375rem;
+  padding-inline: 1rem;
 }
 .wallet-state::before {
   content: "";
   display: inline-block;
   inline-size: 0.5rem;
   block-size: 0.5rem;
-  margin-inline-end: 0.5rem;
+  margin-inline-end: var(--gap-s);
   border-radius: 50%;
   background: currentColor;
   vertical-align: middle;
 }
-/* Each status has a shape, so that it never depends on colour alone. */
+main {
+  padding-block: var(--gap-xl);
+}
+footer {
+  padding-block: var(--gap-l) var(--gap-xl);
+  border-block-start: 1px solid var(--line);
+  color: var(--quiet);
+  font-size: 0.875rem;
+}
+footer p {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--gap-xs) var(--gap-l);
+}
+
+/* A view: its parts flow apart by one gap, and its sections by a larger one. */
+.view > * + *,
+.mine > * + *,
+#accounts > * + *,
+.swap-form > * + *,
+.position-found > * + *,
+div[data-needs] > * + * {
+  margin-block-start: var(--gap-l);
+}
+.view > :is(section, #accounts, .mine, .swap-form, div[data-needs]),
+.mine > section,
+#accounts > :is(section, details),
+.swap-form > .swap-tokens,
+.position-found > section {
+  margin-block-start: var(--gap-xl);
+}
+main > .notice {
+  margin-block-end: var(--gap-l);
+}
+.view > .crumbs + :is(h1, .title-line) {
+  margin-block-start: var(--gap-s);
+}
+.view > h1 + :is(.state-line, .automaxi-absent),
+.view > .automaxi-absent + .state-line,
+.view > .state-line + .notice {
+  margin-block-start: var(--gap-s);
+}
+section > * + *,
+.group > * + * {
+  margin-block-start: var(--gap);
+}
+/* A page within Hydrex leads back to it, by one link above its heading. */
+.crumbs a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-s);
+  color: var(--quiet);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.crumbs a::before {
+  content: "";
+  inline-size: 0.4em;
+  block-size: 0.4em;
+  border-block-end: 2px solid currentColor;
+  border-inline-start: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+.crumbs a:hover {
+  color: var(--ink);
+}
+/* A heading, or a status, with what goes with it: an info button beside it, another button at the end. */
+.title-line,
+.state-line,
+.group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-s) var(--gap);
+}
+:is(.title-line, .group-head) > :not(h1, h2, .info) {
+  margin-inline-start: auto;
+}
+.view h1:focus,
+.view h2:focus,
+#review-title:focus {
+  outline: none;
+}
+
+/* Home: the heading and the one button. */
+.view.home {
+  padding-block: 3rem;
+}
+.view.home h1 {
+  max-inline-size: 14ch;
+  font-size: 3rem;
+  line-height: 1.05;
+}
+.view.home > .buttons {
+  margin-block-start: var(--gap-xl);
+}
+
+/* Buttons: filled for the main action, outlined for the others, compact inside a line. */
+button,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  box-sizing: border-box;
+  min-block-size: 2.75rem;
+  padding-block: 0.5rem;
+  padding-inline: 1.25rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.3;
+  text-decoration: none;
+  cursor: pointer;
+}
+button:hover,
+.button:hover {
+  filter: brightness(1.15);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: progress;
+  filter: none;
+}
+.group button:disabled,
+.swap-review:disabled {
+  cursor: not-allowed;
+}
+:is(button, .button).secondary {
+  background: transparent;
+  color: var(--accent);
+}
+:is(button, .button).secondary:hover {
+  background: var(--tint);
+  filter: none;
+}
+:is(button, .button).compact {
+  min-block-size: 2.25rem;
+  padding-block: 0.25rem;
+  padding-inline: 0.875rem;
+  font-size: 0.875rem;
+}
+button img {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-s);
+}
+
+/* Status: a shape before the words, so that it never depends on colour alone. */
 .shape {
   display: inline-block;
   box-sizing: border-box;
@@ -204,129 +438,469 @@ header.site nav {
   border-radius: 0;
   background: var(--danger);
 }
+/* An automation's or an account's status, as a pill under its heading. */
+.state-line > .state,
+.position-status {
+  display: inline-block;
+  padding-block: var(--gap-xs);
+  padding-inline: var(--gap);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 0.875rem;
+}
 
-th,
-td {
-  padding-block: 0.25rem;
-  padding-inline: 0 1rem;
-  text-align: start;
-  vertical-align: top;
-}
-li + li {
-  margin-block-start: 0.5rem;
-}
-a {
-  color: var(--accent);
-}
-:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
-}
-summary {
-  cursor: pointer;
-}
-.notice {
-  padding-block: 0.5rem;
-  padding-inline: 0.75rem;
-  border-radius: 8px;
+/* Notices say what is wrong or under way; a callout, what to know before going on. */
+.notice,
+.callout {
+  padding: var(--gap) var(--gap-l);
+  border-radius: var(--radius);
   background: var(--notice);
 }
-.notice > p:first-child {
-  margin-block-start: 0;
+.callout {
+  background: var(--tint);
 }
-.notice > p:last-child {
-  margin-block-end: 0;
+:is(.notice, .callout) > * + * {
+  margin-block-start: var(--gap-s);
 }
-.states {
+.notice .shape {
+  margin-inline-end: var(--gap-s);
+}
+.checks .check-failed {
+  color: var(--danger);
+}
+
+/* Cards: the menu's choices, the accounts, the tokens, and what needs you. */
+.menu,
+.accounts,
+.needs-list,
+.allowances,
+.allows-accounts,
+.allows-tokens {
   display: grid;
-  gap: 0.5rem;
-  margin-block: 0;
-  padding-block: 0.75rem 0;
-  padding-inline: 0;
-  border-block-start: 1px solid var(--line);
+  gap: var(--gap-s);
+  padding: 0;
   list-style: none;
 }
-.states li {
+:is(.menu, .accounts, .needs-list, .allowances, .allows-accounts, .allows-tokens) > li {
+  margin: 0;
+}
+.choice,
+.accounts label,
+.need,
+.allowance,
+.wallets,
+.facts.tiles > div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.choice {
+  position: relative;
+  display: grid;
+  gap: var(--gap-s);
+  padding: var(--gap-l) 1.25rem;
+}
+/* The whole card leads to the choice's page. */
+.choice h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.choice:has(h3 a) {
+  padding-inline-end: 3rem;
+}
+.choice:has(h3 a)::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 1.25rem;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-block-start: 2px solid var(--quiet);
+  border-inline-end: 2px solid var(--quiet);
+  transform: translateY(-50%) rotate(45deg);
+}
+.choice:has(h3 a):hover {
+  border-color: var(--edge);
+}
+.choice:has(h3 a):hover::before {
+  border-color: var(--ink);
+}
+.choice h3 {
+  font-family: var(--serif);
+  font-size: 1.125rem;
+  font-weight: 400;
+}
+.choice h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+.choice-head {
   display: flex;
-  gap: 0.625rem;
+  flex-wrap: wrap;
   align-items: baseline;
-  margin: 0;
+  justify-content: space-between;
+  gap: var(--gap-xs) var(--gap-l);
 }
-.states .shape {
-  flex: none;
-  margin: 0;
+.yours {
+  color: var(--ink);
+  font-weight: 700;
 }
-.small {
+
+.accounts label {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  column-gap: var(--gap);
+  align-items: start;
+  padding: var(--gap) var(--gap-l);
+}
+.accounts .about {
+  display: grid;
+  grid-column: 2;
+  gap: 0.125rem;
+}
+.accounts .about > * {
+  justify-self: start;
+}
+.accounts label:has(.pick:not([hidden])) {
+  cursor: pointer;
+}
+.accounts label:has(.pick:not([hidden])):hover {
+  border-color: var(--edge);
+}
+.accounts label:has(.pick:checked) {
+  border-color: var(--accent);
+  background: var(--tint);
+}
+.accounts:not(:has(.pick:not([hidden]))) label {
+  grid-template-columns: minmax(0, 1fr);
+}
+.accounts:not(:has(.pick:not([hidden]))) .about {
+  grid-column: 1;
+}
+.account-link {
+  text-decoration: none;
+}
+.account-link:hover b {
+  text-decoration: underline;
+}
+input[type="checkbox"] {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin: 0.125rem 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+input[type="radio"] {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.group h2 .count,
+.needs .count {
+  color: var(--quiet);
+  font-family: var(--sans);
+  font-size: 1rem;
+}
+details.nothing > summary {
   color: var(--quiet);
   font-size: 0.875rem;
 }
-.lead {
-  font-size: 1.125rem;
-}
-.visually-hidden {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+details.nothing > .accounts {
+  margin-block-start: var(--gap);
 }
 
-button,
-.button {
-  display: inline-block;
-  box-sizing: border-box;
-  min-block-size: 2.75rem;
-  padding-block: 0.5rem;
-  padding-inline: 1.25rem;
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font: inherit;
-  font-weight: 600;
-  line-height: 1.5;
-  text-decoration: none;
-  cursor: pointer;
+.need {
+  display: flex;
+  gap: var(--gap);
+  align-items: baseline;
+  padding: var(--gap) var(--gap-l);
 }
-button:disabled {
-  opacity: 0.5;
-  cursor: progress;
+.need .shape {
+  flex: none;
+  margin: 0;
 }
-.group button:disabled {
-  cursor: not-allowed;
+.need-body {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-s) var(--gap-l);
 }
-:is(button, .button).secondary {
-  background: transparent;
-  color: var(--accent);
-}
-header.site .button {
-  min-block-size: 2.5rem;
-  padding-block: 0.375rem;
-  padding-inline: 1rem;
-}
-button img {
-  inline-size: 1.5rem;
-  block-size: 1.5rem;
-  vertical-align: middle;
-}
-.buttons {
+.allowance {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: var(--gap-s) var(--gap-l);
+  padding: var(--gap-s) var(--gap-s) var(--gap-s) var(--gap-l);
 }
 
+/* The wallet picker, wherever a view needs a wallet. */
+.wallets {
+  display: grid;
+  gap: var(--gap);
+  padding: var(--gap-l) 1.25rem;
+}
+
+/* Facts: a label above each figure. Tiles give a page's key figures a box each. */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap) var(--gap-xl);
+}
+.facts > div {
+  display: grid;
+  align-content: start;
+  gap: 0.125rem;
+}
+.facts dd {
+  font-weight: 700;
+}
+.facts.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--gap-s);
+}
+.facts.tiles > div {
+  padding: var(--gap) var(--gap-l);
+}
+.facts.tiles dd {
+  font-size: 1.125rem;
+}
+/* The review's figures, two by two. */
+.facts.tiles.estimate {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.swap-route:empty {
+  display: none;
+}
+.facts dd.sub,
+.facts dd .small {
+  color: var(--quiet);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+.facts dd:empty {
+  display: none;
+}
+.facts dd code {
+  overflow-wrap: normal;
+}
 /* Klima's guidelines keep a third of the logo's size clear around it. */
 .through {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--gap-s);
 }
+.epoch {
+  color: var(--quiet);
+  font-size: 0.875rem;
+}
+
+/* Details open from a small round info button beside what they explain: as a popup over the page, or as a fold in a
+   call. Without popups, a browser shows them in the page, at the foot of the view, and hides the buttons. */
+.info {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  inline-size: 1.375rem;
+  block-size: 1.375rem;
+  min-block-size: 0;
+  margin-inline-start: 0.125rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--quiet);
+  font-family: var(--serif);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: 0.05em;
+  list-style: none;
+  cursor: pointer;
+}
+/* Its target is larger than it looks. */
+.info::after {
+  content: "";
+  position: absolute;
+  inset: -0.5rem;
+}
+.info:hover,
+details[open] > summary.info {
+  border-color: var(--accent);
+  background: var(--tint);
+  color: var(--accent);
+  filter: none;
+}
+@supports not selector(:popover-open) {
+  button.info {
+    display: none;
+  }
+}
+.pop {
+  box-sizing: border-box;
+  inline-size: min(34rem, 100% - 2rem);
+  max-block-size: min(42rem, 100% - 4rem);
+  padding: 0 1.25rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.25);
+  overscroll-behavior: contain;
+}
+.pop:popover-open {
+  margin: auto;
+}
+.pop:focus-visible {
+  outline: none;
+}
+.pop::backdrop {
+  background: rgb(0 0 0 / 0.3);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pop:popover-open {
+    animation: rise 0.15s ease-out;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+.pop-head {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  margin-inline: -1.25rem;
+  padding: var(--gap) var(--gap-s) var(--gap) 1.25rem;
+  border-block-end: 1px solid var(--line);
+  background: var(--paper);
+}
+.pop-head h3 {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+.pop-close {
+  flex: none;
+  inline-size: 2.5rem;
+  min-block-size: 2.5rem;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--quiet);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+.pop-close:hover {
+  background: var(--tint);
+  color: var(--ink);
+  filter: none;
+}
+.pop > * + *,
+.pop > [data-section] > * + * {
+  margin-block-start: var(--gap);
+}
+/* A section an address points to shows under the popup's title. */
+.pop [data-section] {
+  scroll-margin-block-start: 5rem;
+}
+.pop > .pop-head + * {
+  margin-block-start: var(--gap-l);
+}
+.pop :is(h3, .label):not(.pop-head h3) {
+  margin-block-start: var(--gap-l);
+}
+.pop :is(h3, .label) + * {
+  margin-block-start: var(--gap-s);
+}
+@media (max-width: 30rem) {
+  /* On a phone, a sheet up from the foot of the screen. */
+  .pop {
+    inline-size: 100%;
+    max-block-size: 85vh;
+    border-block-end: 0;
+    border-radius: 16px 16px 0 0;
+  }
+  .pop:popover-open {
+    margin: auto 0 0;
+  }
+}
+summary {
+  list-style: none;
+  cursor: pointer;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary:not(.info)::before {
+  content: "";
+  display: inline-block;
+  inline-size: 0.45em;
+  block-size: 0.45em;
+  margin-inline-end: 0.6em;
+  border-block-end: 2px solid var(--quiet);
+  border-inline-end: 2px solid var(--quiet);
+  transform: translateY(-0.15em) rotate(-45deg);
+  transition: transform 0.15s;
+}
+details[open] > summary:not(.info)::before {
+  transform: translateY(-0.2em) rotate(45deg);
+}
+/* Details' facts: a label, then its value, a row each. Fee facts are the same six rows for every product. */
+.fee-facts,
+.rows {
+  display: grid;
+  gap: var(--gap-s);
+}
+:is(.fee-facts, .rows) > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr);
+  column-gap: var(--gap);
+  align-items: baseline;
+}
+:is(.fee-facts, .rows) dt {
+  color: var(--quiet);
+  font-size: 0.875rem;
+}
+/* A row with two addresses, such as Aero's two factories for its basic pools, keeps them apart. */
+:is(.fee-facts, .rows) dd > br + code {
+  display: inline-block;
+  margin-block-start: var(--gap-s);
+}
+@media (max-width: 30rem) {
+  :is(.fee-facts, .rows) > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* What says nothing takes no room: a call's count when there is one call, the review's line for one transaction. */
+.slip .count:empty,
+.how:empty {
+  display: none;
+}
+
+/* Tables scroll on a narrow screen, so that their words stay whole. */
 .scroll {
   overflow-x: auto;
 }
-/* Words stay whole: on a narrow screen, the table scrolls. */
 .scroll table {
   border-collapse: collapse;
   font-size: 0.875rem;
@@ -334,30 +908,21 @@ button img {
 }
 .scroll :is(th, td) {
   padding-block: 0.375rem;
-  padding-inline-end: 0.5rem;
+  padding-inline: 0 var(--gap);
   border-block-end: 1px solid var(--line);
+  text-align: start;
+  vertical-align: top;
 }
-
-.earnings td:not(:first-child) {
-  font-family: var(--mono);
-  text-align: end;
-}
+.earnings td:not(:first-child),
 .earned-pools td + td {
   font-family: var(--mono);
   text-align: end;
 }
-dl.details > div {
-  margin-block-end: 0.5rem;
-}
-
-dl.details dd {
-  margin: 0;
-}
 
 .timeline {
   padding-inline-start: 1.25rem;
-  list-style: none;
   border-inline-start: 2px solid var(--line);
+  list-style: none;
 }
 .timeline li {
   position: relative;
@@ -373,102 +938,93 @@ dl.details dd {
   background: var(--accent);
 }
 
-.group {
-  margin-block: 1.5rem;
-  padding-block-start: 0.25rem;
-  border-block-start: 1px solid var(--line);
-}
-.group h2 {
-  font-size: 1.125rem;
-}
-.group .accounts {
-  padding-inline-start: 0;
-  list-style: none;
-}
-.accounts label {
-  display: grid;
-  grid-template-columns: 1.5rem 1fr;
-  column-gap: 0.75rem;
-  padding: 0.5rem;
-  border-radius: 8px;
-}
-.accounts .about {
-  grid-column: 2;
-}
-.accounts label:has(.pick:not([hidden])) {
-  cursor: pointer;
-}
-.accounts label:has(.pick:checked) {
-  background: var(--tint);
-}
-input[type="checkbox"] {
-  inline-size: 1.5rem;
-  block-size: 1.5rem;
-  margin: 0;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-.accounts:not(:has(.pick:not([hidden]))) label {
-  grid-template-columns: 1fr;
-  padding-inline: 0;
-}
-.accounts:not(:has(.pick:not([hidden]))) .about {
-  grid-column: 1;
-}
-
-footer {
-  margin-block-start: 2rem;
-  padding-block-start: 0.5rem;
-  border-block-start: 1px solid var(--line);
-  color: var(--quiet);
-  font-size: 0.875rem;
-}
-
+/* The review: one step at a time, its buttons always in reach. */
 dialog {
-  max-inline-size: min(40rem, 100% - 2rem);
+  box-sizing: border-box;
+  inline-size: min(36rem, 100% - 2rem);
+  max-inline-size: none;
   padding-block: 0;
-  padding-inline: 1rem;
-  border: 1px solid var(--edge);
-  border-radius: 8px;
+  padding-inline: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: var(--paper);
   color: var(--ink);
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.25);
 }
 dialog::backdrop {
   background: rgb(0 0 0 / 0.5);
 }
 dialog .step-count {
-  margin-block: 1rem 0;
+  margin-block-start: 1.25rem;
+}
+#review-title {
+  margin-block: 1.25rem var(--gap-l);
+  font-size: 1.5rem;
 }
 dialog .step-count:not([hidden]) + h2 {
-  margin-block-start: 0.25rem;
+  margin-block-start: var(--gap-xs);
+}
+.pages > div > * + *,
+.done > * + *,
+.calls > * + * {
+  margin-block-start: var(--gap-l);
+}
+.calls,
+.done {
+  margin-block-start: var(--gap-l);
 }
 .steps {
-  padding-inline-start: 0;
+  padding: 0;
   list-style: none;
 }
+dialog .foot {
+  position: sticky;
+  inset-block-end: 0;
+  display: grid;
+  gap: var(--gap-s);
+  margin-block-start: var(--gap-l);
+  padding-block: var(--gap) 1.25rem;
+  border-block-start: 1px solid var(--line);
+  background: var(--paper);
+}
+@media (max-height: 30rem) {
+  dialog .foot {
+    position: static;
+  }
+}
+
+/* Slips and receipts: the structure of a till receipt, in the mono face. */
 .slip {
-  margin-block: 0.75rem;
-  padding-block: 1.25rem;
-  padding-inline: 1rem;
+  padding: 1.25rem var(--gap-l);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius);
+  background: var(--card);
   font-family: var(--mono);
   font-size: 0.8125rem;
 }
-.slip .count {
-  margin: 0;
-}
 .slip .says {
-  margin-block: 0.375rem 0;
+  margin-block-start: 0.375rem;
   font-family: var(--sans);
-  font-size: 1.125rem;
+  font-size: 1.0625rem;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.35;
+}
+/* A call's fields open from the info button at its corner. */
+.slip:has(> .slip-details) {
+  position: relative;
+}
+.slip:has(> .slip-details) > .says {
+  padding-inline-end: 2rem;
+}
+.slip-details > summary {
+  position: absolute;
+  inset-block-start: 1.125rem;
+  inset-inline-end: var(--gap-l);
 }
 .fields {
   display: grid;
-  gap: 0.5rem;
-  margin-block: 0.75rem 0;
+  gap: var(--gap-s);
+  margin-block-start: var(--gap);
   padding-block-start: 0.625rem;
   border-block-start: 2px dashed var(--ink);
 }
@@ -477,9 +1033,6 @@ dialog .step-count:not([hidden]) + h2 {
   grid-template-columns: 5.25rem minmax(0, 1fr);
   column-gap: 0.625rem;
   align-items: baseline;
-}
-.fields dd {
-  margin: 0;
 }
 .fields .under,
 .fields .call,
@@ -499,19 +1052,19 @@ dialog .step-count:not([hidden]) + h2 {
   display: block;
   max-inline-size: 36ch;
   margin-block-start: 0.375rem;
-  padding-block: 0.5rem;
-  padding-inline: 0.625rem;
+  padding: var(--gap-s) 0.625rem;
   border-radius: 6px;
   background: var(--tint);
   line-height: 1.55;
 }
-.slip-foot {
-  margin-block: 0.75rem 0;
+.slip-foot,
+.receipt-foot {
+  margin-block-start: var(--gap);
   padding-block-start: 0.625rem;
   border-block-start: 2px dashed var(--ink);
 }
 .slip-note {
-  margin-block: 0 0.5rem;
+  margin-block-end: var(--gap-s);
   font-size: 0.875rem;
 }
 .slip-foot .check,
@@ -520,82 +1073,12 @@ dialog .step-count:not([hidden]) + h2 {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  gap: 0.25rem 0.75rem;
-  margin: 0;
+  gap: var(--gap-xs) var(--gap);
 }
 .slip-foot a,
 .receipt-foot a {
   font-family: var(--sans);
   font-size: 0.875rem;
-}
-.standing {
-  margin-block-start: 1.5rem;
-}
-.standing h3 {
-  margin-block: 0 0.5rem;
-  font-size: 1rem;
-}
-.standing .states {
-  padding-block-end: 0.25rem;
-}
-/* Lines without a shape start where the words of those with one do. */
-.states .unmarked {
-  padding-inline-start: calc(0.75em + 0.625rem);
-}
-.key-facts {
-  display: grid;
-  gap: 0.375rem;
-  margin-block: 0.75rem;
-}
-.key-facts > div {
-  display: grid;
-  grid-template-columns: 6rem minmax(0, 1fr);
-  column-gap: 0.75rem;
-  align-items: baseline;
-}
-.key-facts dt {
-  color: var(--quiet);
-  font-size: 0.875rem;
-}
-.key-facts dd {
-  margin: 0;
-}
-/* Fee facts: the same six rows, in the same order, for every automation. */
-.fee-facts {
-  display: grid;
-  gap: 0.375rem;
-  margin-block: 0.75rem;
-  padding-block-start: 0.625rem;
-  border-block-start: 1px solid var(--line);
-}
-.fee-facts > div {
-  display: grid;
-  grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr);
-  column-gap: 0.75rem;
-  align-items: baseline;
-}
-.fee-facts dt {
-  color: var(--quiet);
-  font-size: 0.875rem;
-}
-.fee-facts dd {
-  margin: 0;
-}
-.receipt-claims {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.receipt-claims > li + li {
-  margin-block-start: 0.25rem;
-  padding-block-start: 0;
-  border: 0;
-}
-.receipt-stopped {
-  margin-block: 0.5rem 0;
-  color: var(--quiet);
-  font-family: var(--sans);
-  font-size: 0.8125rem;
 }
 .receipt {
   max-inline-size: 28rem;
@@ -603,46 +1086,32 @@ dialog .step-count:not([hidden]) + h2 {
   font-size: 0.875rem;
 }
 .receipt-name {
-  margin: 0;
   font-family: var(--serif);
   font-size: 1.375rem;
   line-height: 1.2;
   text-align: center;
 }
 .receipt > .label {
-  margin-block: 0.375rem 0;
+  margin-block-start: 0.375rem;
   text-align: center;
 }
 .receipt-day {
-  margin-block: 0.125rem 0;
+  margin-block-start: 0.125rem;
   text-align: center;
-}
-.lines,
-.total {
-  margin: 0;
 }
 .lines {
   margin-block-start: 0.875rem;
   padding-block: 0.375rem;
   border-block-start: 2px dashed var(--ink);
 }
-.lines > div,
-.total > div {
+.lines > div {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 1rem;
+  column-gap: var(--gap-l);
   align-items: baseline;
-}
-.lines > div {
   padding-block: 0.3125rem;
 }
-.lines dd,
-.total dd {
-  margin: 0;
-}
-.lines .value,
-.total .value,
-.total .dollars {
+.lines .value {
   grid-column: 2;
   text-align: end;
 }
@@ -653,12 +1122,23 @@ dialog .step-count:not([hidden]) + h2 {
   font-family: var(--sans);
   font-size: 0.8125rem;
 }
-.lines .through {
-  margin-block: 0.5rem;
+.total .detail {
+  flex-basis: 100%;
 }
+.lines .through {
+  margin-block: var(--gap-s);
+}
+/* The total: its label, then its figure, which takes a line of its own when it is long. */
 .total {
   padding-block-start: 0.625rem;
   border-block-start: 4px double var(--ink);
+}
+.total > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--gap-l);
 }
 .total dt,
 .total .value {
@@ -669,214 +1149,137 @@ dialog .step-count:not([hidden]) + h2 {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.total .value {
+  margin-inline-start: auto;
+  text-align: end;
+}
 .total .dollars {
+  flex-basis: 100%;
   color: var(--quiet);
+  text-align: end;
 }
-.receipt-foot {
-  margin-block-start: 0.75rem;
-  padding-block-start: 0.625rem;
-  border-block-start: 2px dashed var(--ink);
-}
-dialog .foot {
-  position: sticky;
-  inset-block-end: 0;
-  padding-block: 0.75rem;
-  background: var(--paper);
-}
-dialog .foot p {
-  margin-block: 0 0.5rem;
-}
-dialog .foot :is(p:empty, .buttons) {
-  margin: 0;
-}
-@media (max-height: 30rem) {
-  dialog .foot {
-    position: static;
-  }
-}
-/* Headings get the focus when a view or the review opens, so that screen readers read them first. They need no
-   outline. */
-.view h1:focus,
-#review-title:focus {
-  outline: none;
-}
-
-/* A breadcrumb above each page below the App. */
-.crumbs {
-  margin-block-start: 1rem;
-  color: var(--quiet);
-  font-size: 0.875rem;
-}
-.crumbs + h1 {
-  margin-block-start: 0.25rem;
-}
-.state {
-  margin-block: 0.5rem;
-}
-.stopped-line {
-  display: flex;
-  gap: 0.625rem;
-  align-items: baseline;
-  padding-block-start: 0.75rem;
-  border-block-start: 1px solid var(--line);
-}
-.stopped-line .shape {
-  flex: none;
-  margin: 0;
-}
-/* The menu: a row for each choice, in the same order of facts. */
-.menu {
-  margin: 0;
+.receipt-claims {
   padding: 0;
   list-style: none;
 }
-.choice {
-  padding-block: 0.75rem;
-  border-block-start: 1px solid var(--line);
+.receipt-claims > li + li {
+  margin-block-start: var(--gap-xs);
+  padding-block-start: 0;
+  border: 0;
 }
-li.choice + li.choice {
-  margin-block-start: 0;
-}
-.choice h3 {
-  margin-block: 0 0.25rem;
-  font-size: 1.125rem;
-}
-.choice > p {
-  margin-block: 0.25rem;
-}
-/* Folds hold a page's technical parts, last. */
-.fold {
-  border-block-start: 1px solid var(--line);
-}
-.fold:last-child {
-  border-block-end: 1px solid var(--line);
-}
-.fee-facts + .fold,
-.fee-facts + p + .fold {
-  margin-block-start: 1.5rem;
-}
-.fold > summary {
-  padding-block: 0.75rem;
-  font-family: var(--serif);
-  font-size: 1.25rem;
-}
-.fold h3 {
-  margin-block: 1rem 0.25rem;
-  font-size: 1rem;
-}
-.fold h3 + p {
-  margin-block-start: 0;
-}
-.checks .check-failed {
-  color: var(--danger);
-}
-.group .count {
+.receipt-stopped {
+  margin-block-start: var(--gap-s);
   color: var(--quiet);
   font-family: var(--sans);
-  font-size: 1rem;
+  font-size: 0.8125rem;
 }
-.nothing summary {
-  padding-block: 0.5rem;
-}
-.account-link {
-  text-decoration: none;
-}
-.account-link:hover b {
-  text-decoration: underline;
-}
-.view[data-view="about"] h2 {
-  font-size: 1.25rem;
-}
-.view h2:focus {
-  outline: none;
-}
-
-/* The App's Needs you: one line per thing to do, its shape first, then its one action. */
-.needs {
-  margin-block: 1.5rem;
-  padding-block-start: 0.25rem;
-  border-block-start: 1px solid var(--line);
-}
-.needs h2,
-#products h2,
-.swap-tokens h2 {
-  font-size: 1.125rem;
-}
-.needs .count {
-  color: var(--quiet);
+.receipt-swap {
+  margin-block-start: var(--gap);
   font-family: var(--sans);
-  font-size: 1rem;
 }
-.needs-list {
-  margin: 0;
+.standings > * + * {
+  margin-block-start: var(--gap-l);
+}
+.states {
+  display: grid;
+  gap: var(--gap-s);
   padding: 0;
   list-style: none;
 }
-.need {
+.states li {
   display: flex;
   gap: 0.625rem;
   align-items: baseline;
+  margin: 0;
 }
-.need .shape {
+.states .shape {
   flex: none;
   margin: 0;
 }
-.need-body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
-  flex: 1;
+/* Lines without a shape start where the words of those with one do. */
+.states .unmarked {
+  padding-inline-start: calc(0.75em + 0.625rem);
 }
-.yours {
-  margin-block: 0.25rem 0;
+.standing .receipt {
+  margin-block-start: var(--gap-l);
 }
 
-/* The swap: the output, then a row per token, then what the ticked ones fetch together. */
+/* The swap: the output, a card per token, then what the ticked ones fetch together. */
 .outputs {
-  margin: 1rem 0 0;
   padding: 0;
   border: 0;
 }
 .output-choices {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  margin-block: 0.5rem 0;
+  gap: var(--gap-s);
+  margin-block-start: var(--gap-s);
 }
 .output-choice {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  min-block-size: 2.75rem;
+  min-block-size: 2.5rem;
+  padding-inline: var(--gap-l);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
   cursor: pointer;
 }
-input[type="radio"] {
-  inline-size: 1.25rem;
-  block-size: 1.25rem;
-  margin: 0;
-  accent-color: var(--accent);
+.output-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
-.swap-tokens {
-  margin-block-start: 1.5rem;
-  padding-block-start: 0.25rem;
-  border-block-start: 1px solid var(--line);
+.output-choice:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
 }
-.swap-rows {
-  padding-inline-start: 0;
-  list-style: none;
+.output-choice:has(input:focus-visible) {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.output-choice:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .swap-rows code a {
   color: var(--quiet);
 }
-.swap-fetches {
+.row-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 var(--gap-l);
+  justify-self: stretch !important;
+}
+.swap-fetches,
+.line-fetches {
   font-family: var(--mono);
+}
+.swap-lines {
+  display: grid;
+  gap: var(--gap-s);
+  padding: 0;
+  list-style: none;
+}
+.swap-lines > li {
+  display: grid;
+  margin: 0;
+}
+.swap-tokens > .add-token {
+  margin-block-start: var(--gap-l);
+}
+.add-token > summary {
+  color: var(--quiet);
+  font-size: 0.875rem;
 }
 .add-line {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--gap-s);
+  margin-block-start: var(--gap-s);
 }
 .add-line label {
   flex: 1 1 16rem;
@@ -885,10 +1288,10 @@ input[type="radio"] {
 select {
   box-sizing: border-box;
   min-block-size: 2.75rem;
-  padding-inline: 0.5rem;
+  padding-inline: var(--gap-s);
   border: 1px solid var(--edge);
   border-radius: 8px;
-  background: var(--paper);
+  background: var(--card);
   color: var(--ink);
   font: inherit;
 }
@@ -897,63 +1300,101 @@ select {
   font-family: var(--mono);
 }
 select {
-  min-block-size: 2rem;
+  min-block-size: 2.25rem;
 }
 .swap-summary {
   position: sticky;
   inset-block-end: 0;
-  margin-block: 1rem 1.5rem;
-  padding-block: 0.75rem;
+  display: grid;
+  gap: var(--gap-s);
+  margin-block-start: var(--gap-l);
+  padding-block: var(--gap) var(--gap-l);
   border-block-start: 1px solid var(--line);
   background: var(--paper);
 }
-.swap-summary p {
-  margin-block: 0 0.5rem;
-}
-.swap-summary .buttons {
-  margin: 0;
+.swap-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-s) var(--gap-l);
 }
 @media (max-height: 30rem) {
   .swap-summary {
     position: static;
   }
 }
-.allowances,
-.allows-accounts,
-.allows-tokens {
-  padding-inline-start: 0;
+.claim-tokens,
+.claim-rest,
+.swap-receipt-skipped {
+  padding: 0;
   list-style: none;
 }
-.allowance {
+.claim-more {
+  margin-block-start: var(--gap-s);
+}
+.swap-receipt-skipped {
+  font-family: var(--sans);
+}
+.swap-receipt-skipped > li {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.25rem 1rem;
-}
-.swap-lines,
-.claim-tokens,
-.claim-rest,
-.swap-receipt-skipped {
-  padding-inline-start: 0;
-  list-style: none;
-}
-.swap-receipt-skipped {
-  font-family: var(--sans);
+  gap: var(--gap-s);
+  margin-block-start: var(--gap);
 }
 .receive {
-  margin: 1rem 0;
-  padding: 0.75rem;
+  padding: var(--gap) var(--gap-l);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
+  background: var(--card);
 }
-.receive p {
-  margin-block: 0.5rem;
+.receive > p + p {
+  margin-block-start: var(--gap-s);
 }
 .receive label {
   cursor: pointer;
 }
-.receipt-swap {
-  margin-block: 0.75rem 0;
-  font-family: var(--sans);
+
+@media (max-width: 30rem) {
+  body {
+    padding-inline: 1rem;
+  }
+  h1 {
+    font-size: 1.75rem;
+  }
+  .view.home h1 {
+    font-size: 2.5rem;
+  }
+  /* On a phone, the tiles become one box, with a row for each figure: its label, then the figure at the end. */
+  .facts.tiles,
+  .facts.tiles.estimate {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+  .facts.tiles > div {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--gap-l);
+    align-items: baseline;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .facts.tiles > div + div {
+    border-block-start: 1px solid var(--line);
+  }
+  .facts.tiles dd {
+    font-size: 1rem;
+    text-align: end;
+  }
+  .facts.tiles dd.sub {
+    grid-column: 1 / -1;
+  }
+  .facts.tiles .through {
+    justify-content: flex-end;
+  }
 }

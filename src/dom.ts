@@ -9,6 +9,15 @@ export function show(selector: string, shown = true, root: ParentNode = document
   for (const element of root.querySelectorAll<HTMLElement>(selector)) element.hidden = !shown;
 }
 
+// Whether a popup is open. A browser without popups shows them all in the page.
+export function isOpen(pop: HTMLElement): boolean {
+  try {
+    return pop.matches(":popover-open");
+  } catch {
+    return true;
+  }
+}
+
 export function clone(id: string): DocumentFragment {
   return (document.getElementById(id) as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment;
 }
@@ -26,19 +35,34 @@ export function fillTime(root: ParentNode, name: string, time: number, format = 
   }
 }
 
-// Writes hex in groups of four. CSS spaces the groups, so a copy is still the plain hex.
+// Writes hex in groups of four. CSS spaces the groups, so a copy is still the plain hex. An address or a hash is "0x" and
+// two halves, which wrap only between them, their groups one above the other; longer hex, such as calldata, a word a
+// line.
 export function showHex(element: Element, hex: string): void {
   const fragment = document.createDocumentFragment();
-  hexLines(hex).forEach((line, i) =>
-    line.forEach((group, j) => {
-      if (i || j) fragment.append(document.createElement("wbr"));
-      const span = document.createElement("span");
-      span.textContent = group;
-      if (i && !j) span.className = "line";
+  const group = (text: string): HTMLSpanElement => Object.assign(document.createElement("span"), { textContent: text });
+  const lines = hexLines(hex);
+  if (lines.length === 1) {
+    const [prefix = "", ...groups] = lines[0]!;
+    const middle = Math.ceil(groups.length / 2);
+    [[prefix, ...groups.slice(0, middle)], groups.slice(middle)].forEach((half, i) => {
+      if (i) fragment.append(document.createElement("wbr"));
+      const span = Object.assign(document.createElement("span"), { className: "half" });
+      span.append(...half.map(group));
       fragment.append(span);
-    }),
-  );
+    });
+  } else {
+    lines.forEach((line, i) =>
+      line.forEach((text, j) => {
+        if (i || j) fragment.append(document.createElement("wbr"));
+        const span = group(text);
+        if (i && !j) span.className = "line";
+        fragment.append(span);
+      }),
+    );
+  }
   element.classList.add("hex");
+  element.classList.toggle("halves", lines.length === 1);
   element.replaceChildren(fragment);
 }
 

@@ -42,24 +42,27 @@ This README is for whoever runs the site. The design and the plan are in [design
 - **Batching:** where the wallet answers EIP-5792's `wallet_getCapabilities`, the page sends all the calls of a review
   in one prompt with `wallet_sendCalls`, all or nothing where it can. From a Safe, one Safe transaction. Otherwise one
   prompt per call; the swap is then quoted again before the wallet asks for it, and never with a lower minimum.
-- Home says what the page does, in a line, and leads to the App (`#app`). The App starts with what needs you across the
-  products, each with one action: an account in a stopped automation, an overdue payout, approvals left to the swappers.
-  Then the products, each with what you hold in it: the Hydrex automations (`#hydrex`) and the swap (`#swap`). A fold,
-  What this wallet allows, lists every approval this wallet gave the café's contracts, with the call that undoes it.
+- Home is a heading and the button to the App (`#app`); once a wallet is connected, Home is the App. The App starts with
+  what needs you across the products, each with one action: an account in a stopped automation, an overdue payout,
+  approvals left to the swappers. Then the products, each with what you hold in it: the Hydrex automations (`#hydrex`)
+  and the swap (`#swap`). Its Approvals button lists every approval this wallet gave the café's contracts, with the call
+  that undoes it.
+- Details open from a round info button beside what they explain, as a popup: on a phone, a sheet from the foot of the
+  screen. A popup has an address of its own, such as `#hydrex/carbon-impact/check`.
 - `#hydrex` starts with the wallet's accounts, in groups: those that need their owner, those in each automation, and the
   others. Then the menu: each automation, and voting yourself, with what each takes and what it paid last epoch.
 - `#swap` takes the output from its address, `#swap/weth`, USDC by default, then lists the wallet's tokens, each with
-  its route and what it fetches, ticked when the quote is worth twice its gas. Its folds: fee facts, who controls what,
-  the approvals given to the swappers, and Check it, such as `#swap/weth/check`.
-- Each automation has a page, `#hydrex/carbon-impact` and `#hydrex/automaxi`, with its six fee facts and a way to join.
-  Its technical parts are folded at its foot: how it did against all of Hydrex, joining and leaving, who controls what,
-  and Check it. A fold has an address of its own, such as `#hydrex/carbon-impact/check`.
+  its route and what it fetches, ticked when the quote is worth twice its gas. Its popups: its costs, who controls what
+  and its smart contracts, such as `#swap/weth/check`; and the approvals given to the swappers.
+- Each automation has a page, `#hydrex/carbon-impact` and `#hydrex/automaxi`: its key figures (what it takes, what it
+  pays in, what it paid last epoch, and what it retired or who controls it), and a way to join. Everything else is in
+  popups: its six fee facts, how it did against all of Hydrex, joining and leaving, who controls what, and Check it.
 - Each account has a page, `#hydrex/` and its number, which anyone can open: its status, what its votes earned, what its
   owner can do with it, and, in an automation, up to when it has been paid, what waits to be claimed, and the receipt of
   its last payout. The App marks the accounts paid late.
 - Joining takes two steps: what it allows, with what a week at last epoch's rate would pay and the gas of the change,
-  then the calls. About (`#about`) holds the page's own facts, and how its figures are read.
-  [design/audit.md](design/audit.md) says why the page is laid out so.
+  then the calls, each in its own words, with its fields behind an info button. About (`#about`) holds the page's own
+  facts, and how its figures are read, in a popup. [design/audit.md](design/audit.md) says why the page is laid out so.
 - Inside Safe{Wallet}, it proposes all the calls as one Safe transaction.
 
 Nobody controls the swappers either: their code fixes the fee, 1% of each route's output, the Safe it goes to, the
@@ -212,7 +215,7 @@ cd dist && for file in $(find . -type f | sort); do curl -fsS "https://metadex.c
   something waiting is overdue: its page, the AutoMaxi group and the App's Needs you offer to claim it. If the keeper's
   claim lands first, the page's claim receives nothing, and its receipt says so; it still costs its gas.
 - **A token the swap skipped.** Its route would have fetched less than its minimum, or its token refused the transfer.
-  It stays in the wallet with its approval; the receipt, Needs you and the swap's Approvals fold offer to reset it.
+  It stays in the wallet with its approval; the receipt, Needs you and the swap's Approvals offer to reset it.
 - **A quote far under the page's own price.** The row says so, with both figures: the swapper's sources ask holders to
   check quotes through Hydrex's Algebra and Aero's Slipstream pools against another price.
 - **Paid, or claimed in part.** An epoch counts as paid once claims since it ended took more than half of what its
