@@ -29,8 +29,13 @@ This README is for whoever runs the site. The design and the plan are in [design
   account in it, and which pays the owner, less 1%. AutoMaxi's keeper claims for every member right after each epoch, so
   the page offers it only for the wallet's own accounts, once a payout is overdue: half a day after the flip with
   something waiting, or a full epoch late. It passes only the contracts and tokens that `earned()` finds owing, in last
-  epoch's pools, and the epoch before's when the keeper missed it too. The review offers the rewards as they are, or
-  swapped into one token.
+  epoch's pools, and the epoch before's when the keeper missed it too. AutoMaxi asks each contract for every token
+  passed, and each answer reads the account's past epochs, so a claim of many contracts and tokens splits into calls
+  that each fit a transaction, the most valuable first; calls that need more gas together than one transaction may use
+  go one at a time. A Safe, which sends many calls in one Safe transaction, gets small calls instead, none asking a
+  contract for a token it does not owe, which together use the least gas; it proposes them in as few Safe transactions
+  as their simulated gas allows, each under 15 million. The review offers the rewards as they are, or swapped into one
+  token, but not from a Safe whose claim takes several Safe transactions: the swap follows the claim's receipts.
 - **Swapping** goes through `ImmutableSwapper`, deployed once per output token: USDC, EURC, WETH, cbBTC, AERO and HYDX.
   Each `swap(routes, deadline, skipFailed)` sells the tokens named, each along a route of one to three hops the caller
   picks, through pools of Hydrex, Aero, Aerodrome and Uniswap that it checks against each exchange's factory, and sends
@@ -95,7 +100,8 @@ Once, on GitHub and at the DNS provider:
 - **GitHub Pages:** source "GitHub Actions", custom domain `metadex.cafe`, "Enforce HTTPS" on. At the DNS provider, add
   the A and AAAA records that GitHub lists for an apex domain.
 - **The `github-pages` environment:** allow deployments from tags that match `v*`.
-- **The `BASE_RPC_URL` secret:** an archive RPC for Base. CI uses it for the browser tests, and skips them without it.
+- **The `BASE_RPC_URL` secret,** if you like: an archive RPC for Base, for the browser tests to fork from. Without it,
+  they fork from `https://mainnet.base.org`, which keeps a year of state but limits how many logs one address reads.
 - **Safe{Wallet}:** under Apps, then My custom apps, add `https://metadex.cafe/`.
 
 ## Releasing
@@ -103,7 +109,7 @@ Once, on GitHub and at the DNS provider:
 1. Set the new version, for example `npm version 0.5.0 --no-git-tag-version`, and commit.
 2. Run `npm run build` and `python3 -m http.server --directory dist 8000`, then open <http://localhost:8000/#app> with a
    wallet. Check that joining is on.
-3. Run the browser tests with `npm run test:fork`. CI runs them too when the `BASE_RPC_URL` secret is set.
+3. Run the browser tests with `npm run test:fork`. CI runs them too.
 4. Tag the commit with `v` and the version, for example `v0.5.0`, and push the tag. Any other tag fails.
 
 CI then runs every check, publishes `dist/` on GitHub Pages, and downloads each file back from Pages to compare it.
@@ -263,16 +269,24 @@ npm run format  # before committing
 npm run build   # writes the page to dist/
 ```
 
-`npm run test:fork` builds the page, then runs it in Chromium against two forks of Base in anvil, with real accounts:
+`npm run test:fork` builds the page, then runs it in Chromium against forks of Base in anvil, with real accounts:
 joining, leaving, a Safe, the views, the accounts' pages, and what can fail; then, after the swappers' deployment, a
-swap with a token skipped and its approval reset, a swapper whose checks fail, and a claim, as it is and swapped. It
-needs [anvil](https://getfoundry.sh/) and Chromium (`npx playwright-core install chromium`, or set `CHROMIUM` to a
-Chromium binary). `BASE_RPC_URL` is the archive RPC to fork from, and `SCREENSHOTS` an optional folder for screenshots.
-It takes about twenty minutes.
+swap with a token skipped and its approval reset, a swapper whose checks fail, and a claim, as it is, swapped, and from
+a Safe. Its five files run at once, each with an anvil of its own; `node fork/run.ts fork/claim.ts` runs one, and passes
+options such as `--test-name-pattern=…` on to `node --test`. It needs [anvil](https://getfoundry.sh/) and Chromium
+(`npx playwright-core install chromium`, or set `CHROMIUM` to a Chromium or Chrome binary). `BASE_RPC_URL` is the
+archive RPC to fork from, the page's first RPC by default, and `SCREENSHOTS` an optional folder for screenshots. anvil
+forks through `fork/rpc-cache.ts`, which asks `BASE_RPC_URL` once for each answer about the forks' blocks and keeps it,
+in `FORK_CACHE`, `~/.cache/metadex.cafe/fork` by default; `FORK_LOG=1` prints each request it still sends. Before anvil
+runs a call, the cache asks `BASE_RPC_URL` which slots it reads, and for all of them. Every request of a run goes
+through one queue, at most 8 at a time, anvil's first; one refused as over the RPC's limit is asked again after an
+exponential backoff. The first run, which asks for everything, takes about 25 minutes through an RPC of your own; the
+next ones take about two minutes.
 
 CI runs Prettier, the type check, the unit tests, `reuse lint` and the build. It then builds again from a fresh clone
-and checks that both builds are the same. With `BASE_RPC_URL` set, it also runs the browser tests. Dependabot updates
-the pinned Actions and npm packages every week.
+and checks that both builds are the same. It also runs the browser tests, in the runner's Chrome, with the forks'
+answers kept in GitHub's cache from one run to the next, one run of a branch at a time. Dependabot updates the pinned
+Actions and npm packages every week.
 
 | Path                                                    | What it holds                                                                                                                                                                                             |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -292,7 +306,7 @@ the pinned Actions and npm packages every week.
 | `src/chain.ts`, `src/wallet.ts`                         | RPC requests, and wallets.                                                                                                                                                                                |
 | `src/routes.ts`, `src/views.ts`                         | The page's addresses, and the view each shows.                                                                                                                                                            |
 | `src/dom.ts`, `src/format.ts`                           | Page helpers, and number and date formats.                                                                                                                                                                |
-| `test/`, `fork/page.ts`                                 | Unit tests, and the browser tests.                                                                                                                                                                        |
+| `test/`, `fork/`                                        | Unit tests; the browser tests, which `fork/run.ts` runs at once, the harness they share in `fork/harness.ts`, and `fork/rpc-cache.ts`, which keeps the answers their forks read from Base.                |
 | `fork/fixtures/`                                        | AutoMaxi's init code, for the browser tests to deploy it on the fork.                                                                                                                                     |
 | `scripts/`                                              | The build; `fonts.py` makes `fonts/`, `icons.ts` draws the icons from `icon.svg`, and `tokens.ts` checks the list of tokens.                                                                              |
 

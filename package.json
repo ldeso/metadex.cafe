@@ -1,6 +1,6 @@
 {
   "name": "metadex.cafe",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "private": true,
   "description": "Vote, claim and swap on Base",
   "license": "MIT",
@@ -13,17 +13,17 @@
     "build": "node scripts/build.ts",
     "format": "prettier --write .",
     "test": "node --test",
-    "test:fork": "npm run build && node --test fork/page.ts",
+    "test:fork": "npm run build && node fork/run.ts",
     "typecheck": "tsc"
   },
   "dependencies": {
     "@safe-global/safe-apps-sdk": "9.1.0",
-    "viem": "2.57.7"
+    "viem": "2.57.10"
   },
   "devDependencies": {
     "@types/node": "26.6.5",
     "esbuild": "0.28.2",
-    "playwright-core": "1.63.0",
+    "playwright-core": "1.64.1",
     "prettier": "3.9.10",
     "typescript": "7.0.2"
   },
