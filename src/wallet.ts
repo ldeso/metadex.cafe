@@ -55,11 +55,14 @@ async function injected(): Promise<Provider> {
   return provider;
 }
 
+const SAFE_ORIGIN = "https://app.safe.global";
+
 export async function safeWallet(): Promise<Wallet | undefined> {
   if (window.parent === window) return undefined;
+  const parent = location.ancestorOrigins?.[0] ?? (document.referrer && new URL(document.referrer).origin);
+  if (parent && parent !== SAFE_ORIGIN) return undefined;
   const sdk = new SafeAppsSDK({ allowedDomains: [/^https:\/\/app\.safe\.global$/] });
-  // In any other frame, nothing answers.
-  const timeout = new Promise<undefined>((resolve) => setTimeout(resolve, 1_000));
+  const timeout = new Promise<undefined>((resolve) => setTimeout(resolve, parent ? 10_000 : 1_000));
   const info = await Promise.race([sdk.safe.getInfo(), timeout]).catch(() => undefined);
   if (!info) return undefined;
   const provider: Provider = {
