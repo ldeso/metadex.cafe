@@ -15,15 +15,15 @@ import {
   summed,
   type Claim,
 } from "./claim.ts";
-import { clone, fill, show } from "./dom.ts";
-import { count, figure, list, usd } from "./format.ts";
+import { clone, fill, live, show } from "./dom.ts";
+import { count, figure, list, money, moneyAt } from "./format.ts";
 import type { Entry } from "./last-payout.ts";
-import { pricesNow, usdOf, type Token } from "./prices.ts";
-import { dollars, type Amount } from "./receipts.ts";
+import { pricesNow, worthOf, type Prices, type Token } from "./prices.ts";
+import { valueAt, weightAt, type Amount } from "./receipts.ts";
 import { openReview, type Hooks } from "./review.ts";
 import { hrefOf } from "./routes.ts";
 import { APPROVAL_GAS, MIDDLES, findRoute, minimumOf, paidOf, partOf, simulate } from "./swap.ts";
-import { costs, gasUsd } from "./swap-calls.ts";
+import { costs, gasCost, gasWords } from "./swap-calls.ts";
 import { openSwapReview, planSteps, prefill, swapReceipt, swapsOff, type Plan } from "./swap-view.ts";
 import { describe } from "./tokens.ts";
 import { capabilities, type Connection } from "./wallet.ts";
@@ -35,13 +35,13 @@ const key = (address: string): string => address.toLowerCase();
 // The slippage of a swap after a claim: the swap's page's own default.
 const MARGIN = 50n;
 
-// What reached the owner in each claim of the page's own, from its Claimed events.
+// What reached the owner in each claim of the page's own, from its Claimed events, at prices now if read.
 function claimReceipts(
   receipts: Receipt[],
   claims: Claim[],
   caller: Address,
   tokens: Map<string, Token>,
-  prices: Map<string, number>,
+  prices: Prices | undefined,
 ): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const words = (amounts: Amount[], sign = "") =>
@@ -61,10 +61,10 @@ function claimReceipts(
   );
   for (const { id, received, fees, paid } of found) {
     const receipt = clone("claim-receipt");
-    const value = dollars(received, tokens, prices);
+    const value = prices ? valueAt(received, tokens, prices) : 0;
     fill(receipt, {
       "claim-receipt-id": `Account #${id}`,
-      "claim-receipt-usd": value > 0 ? usd(value) : "",
+      "claim-receipt-worth": value > 0 ? () => money(moneyAt(value, prices!)) : "",
       "claim-receipt-claimed": words(received),
       "claim-receipt-fee": words(fees, "−"),
       "claim-receipt-paid": words(paid),
@@ -75,33 +75,34 @@ function claimReceipts(
   return fragment;
 }
 
-// A list of tokens, the largest in dollars first: the first three, then the rest folded.
+// A list of tokens, the largest at the prices first, if read: the first three, then the rest folded.
 function tokenLines(
-  body: DocumentFragment,
+  list: Element,
+  more: HTMLDetailsElement,
   amounts: { token: Address; amount: bigint }[],
   tokens: Map<string, Token>,
-  prices: Map<string, number>,
+  prices: Prices | undefined,
 ): void {
-  const value = (token: Address, amount: bigint) => dollars([{ token, amount }], tokens, prices);
+  const value = (token: Address, amount: bigint) => (prices ? valueAt([{ token, amount }], tokens, prices) : 0);
   const sorted = [...amounts].sort((a, b) => value(b.token, b.amount) - value(a.token, a.amount));
   const line = ({ token, amount }: { token: Address; amount: bigint }) => {
     const item = clone("claim-token");
     const known = tokens.get(key(token));
-    const dollars = value(token, amount);
+    const worth = value(token, amount);
     fill(item, {
       "claim-symbol": known?.symbol ?? token,
       "claim-amount": known ? figure(amount, known.decimals) : String(amount),
-      "claim-usd": dollars > 0 ? usd(dollars) : "",
+      "claim-worth": worth > 0 ? () => money(moneyAt(worth, prices!)) : "",
     });
     return item;
   };
-  body.querySelector(".claim-tokens")!.replaceChildren(...sorted.slice(0, 3).map(line));
+  list.replaceChildren(...sorted.slice(0, 3).map(line));
   const rest = sorted.slice(3);
-  const more = body.querySelector<HTMLDetailsElement>(".claim-more")!;
   more.hidden = !rest.length;
   const restValue = rest.reduce((sum, { token, amount }) => sum + value(token, amount), 0);
+  const summary = count(rest.length, "more token", "more tokens");
   fill(more, {
-    "claim-more-summary": `${count(rest.length, "more token", "more tokens")}${restValue > 0 ? `, ${usd(restValue)}` : ""}`,
+    "claim-more-summary": restValue > 0 ? () => `${summary}, ${money(moneyAt(restValue, prices!))}` : summary,
   });
   more.querySelector(".claim-rest")!.replaceChildren(...rest.map(line));
 }
@@ -117,7 +118,6 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
     describe([...MIDDLES, HYDX]).catch(() => new Map<string, Token>()),
   ]);
   for (const [address, token] of middles) if (!tokens.has(address)) tokens.set(address, token);
-  const prices = entries[0]!.earnings!.prices;
   const owing = claims.filter(({ owed }) => owed.length);
   const which = list(entries.map(({ account }) => `#${account.id}`));
   const name = `Claim for ${entries.length === 1 ? "Hydrex account" : "Hydrex accounts"} ${which}`;
@@ -131,13 +131,16 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
     openReview({ name, pages: [{ title: name, body: fragment }], steps: [], checkHref, connection, hooks });
   };
   if (!owing.length) return nothing("Nothing to claim: the keeper may have just claimed it.");
+  const totals = paidBy(owing.flatMap(({ owed }) => owed));
+  const paid = totals.map(({ token, paid }) => ({ token, amount: paid }));
   // Each account's claim, in calls that fit a transaction, or small ones for a Safe to pack together, the most valuable
-  // first, so that stopping halfway still claims the most.
+  // at last epoch's prices first, or at a stand-in's for a token without one, so that stopping halfway still claims the
+  // most.
   const worth = ({ owed }: Claim) =>
-    dollars(
+    weightAt(
       owed.map(({ token, amount }) => ({ token, amount })),
       tokens,
-      prices,
+      entries[0]!.earnings!.prices,
     );
   const budget = connection.wallet.propose ? SAFE_CLAIM_CALL_GAS : CLAIM_CALL_GAS;
   const calls = owing.flatMap((claim) => {
@@ -154,48 +157,63 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
   const totalGas = gas.reduce((sum, one) => sum + one, 0n);
   const groups = claimTransactions(gas);
   const apart = groups.length > 1;
-  const totals = paidBy(owing.flatMap(({ owed }) => owed));
-  const paid = totals.map(({ token, paid }) => ({ token, amount: paid }));
-  // A swap is judged at prices now, as on the swap's page; what waits, at last epoch's.
-  let pricedNow: Promise<Map<string, number>> | undefined;
-  const currentPrices = () =>
-    (pricedNow ??= pricesNow(
-      [
-        ...paid.flatMap(({ token }) => tokens.get(key(token)) ?? []),
-        ...SWAPPERS.map(({ token, decimals, symbol }) => ({ address: token, decimals, symbol })),
-      ],
-      new Map(paid.map(({ token, amount }) => [key(token), amount])),
-    ).catch(() => new Map<string, number>()));
   const body = clone("claim-before");
-  fill(body, {
-    "claim-earned": usd(
-      dollars(
-        totals.map(({ token, earned }) => ({ token, amount: earned })),
-        tokens,
-        prices,
-      ),
-    ),
-    "claim-fee": `−${usd(
-      dollars(
-        totals.map(({ token, fee }) => ({ token, amount: fee })),
-        tokens,
-        prices,
-      ),
-    )}`,
-    "claim-paid": usd(dollars(paid, tokens, prices)),
-    "claim-count": count(totals.length, "token", "tokens"),
-  });
-  tokenLines(
-    body,
-    totals.map(({ token, earned }) => ({ token, amount: earned })),
-    tokens,
-    prices,
+  fill(body, { "claim-count": count(totals.length, "token", "tokens") });
+  // What waits, and a swap of it, at prices now, as on the swap's page. The review opens at once, in tokens, and shows
+  // them in money once read; without them, it stays in tokens, and swaps none.
+  const [earnedLine, feeLine, paidLine, gasLine] = [".claim-earned", ".claim-fee", ".claim-paid", ".claim-gas"].map(
+    (name) => body.querySelector(name)!,
+  ) as [Element, Element, Element, Element];
+  const [tokenList, more] = [
+    body.querySelector(".claim-tokens")!,
+    body.querySelector<HTMLDetailsElement>(".claim-more")!,
+  ];
+  // The prices, once read or failed; and the gas of the claim with the swap picked, while one is.
+  let prices: Prices | undefined;
+  let settled = false;
+  let withSwap: bigint | undefined;
+  const sayGas = () =>
+    live(gasLine, () => {
+      // Without prices, in the ETH that pays it.
+      const of = (gas: bigint) => (settled && found ? gasWords(gas * found.gasPrice, prices) : "…");
+      return `Gas ${simulated ? of(totalGas) : "…"}${withSwap === undefined ? "" : `, ${of(withSwap)} with the swap`}`;
+    });
+  const drawPrices = () => {
+    const worth = (amounts: Amount[]) => () =>
+      prices ? money(moneyAt(valueAt(amounts, tokens, prices), prices)) : settled ? "Not read" : "…";
+    const fees = worth(totals.map(({ token, fee }) => ({ token, amount: fee })));
+    live(earnedLine, worth(totals.map(({ token, earned }) => ({ token, amount: earned }))));
+    live(feeLine, () => `${prices ? "−" : ""}${fees()}`);
+    live(paidLine, worth(paid));
+    tokenLines(
+      tokenList,
+      more,
+      totals.map(({ token, earned }) => ({ token, amount: earned })),
+      tokens,
+      prices,
+    );
+    sayGas();
+  };
+  drawPrices();
+  const priced = pricesNow(
+    [
+      ...paid.flatMap(({ token }) => tokens.get(key(token)) ?? []),
+      ...SWAPPERS.map(({ token, decimals, symbol }) => ({ address: token, decimals, symbol })),
+    ],
+    new Map(paid.map(({ token, amount }) => [key(token), amount])),
+  ).then(
+    (read) => {
+      [prices, settled] = [read, true];
+      drawPrices();
+      return read;
+    },
+    (error: unknown) => {
+      console.error(error);
+      settled = true;
+      drawPrices();
+      return undefined;
+    },
   );
-  const claimUsd = simulated && found ? gasUsd(totalGas, found) : undefined;
-  const gasLine = body.querySelector(".claim-gas")!;
-  const sayGas = (withSwap?: number) =>
-    (gasLine.textContent = `Gas ${claimUsd === undefined ? "…" : usd(claimUsd)}${withSwap === undefined ? "" : `, ${usd(withSwap)} with the swap`}`);
-  sayGas();
   // The outputs, in a list to pick from, once swaps are on.
   const select = body.querySelector<HTMLSelectElement>(".claim-output")!;
   select.replaceChildren(
@@ -218,8 +236,8 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
         connection.address,
       ).flatMap(({ paid }) => paid),
     );
-  const asTheyAre = (receipts: Receipt[]) => {
-    const fragment = claimReceipts(receipts, owing, connection.address, tokens, prices);
+  const asTheyAre = async (receipts: Receipt[]) => {
+    const fragment = claimReceipts(receipts, owing, connection.address, tokens, await priced);
     const next = clone("claim-next");
     next.querySelector(".claim-swap-next")!.remove();
     next.querySelector(".claim-swap-failed")!.remove();
@@ -228,7 +246,7 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
     if (!came.length) these.remove();
     else these.addEventListener("click", () => prefill(came));
     fragment.append(next);
-    return Promise.resolve(fragment);
+    return fragment;
   };
   const opened = openReview({
     name,
@@ -250,9 +268,10 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
   const plan = async (swapper: Swapper): Promise<void> => {
     const id = ++planned;
     into.textContent = "…";
+    withSwap = undefined;
+    sayGas();
     const gasValue = () => 0n;
-    const [current, routes] = await Promise.all([
-      currentPrices(),
+    const [routes, current] = await Promise.all([
       Promise.all(
         paid.map(async ({ token, amount }) =>
           same(token, swapper.token)
@@ -260,26 +279,27 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
             : findRoute(token, amount, swapper, true, gasValue).catch(() => undefined),
         ),
       ),
+      priced,
     ]);
     if (id !== planned) return;
-    const outputPrice = current.get(key(swapper.token));
+    const outputPrice = current?.of.get(key(swapper.token));
     // Only tokens whose quote clears their gas twice over are swapped; the others stay as they are.
     const items: Plan["items"] = [];
     const left: string[] = [];
     paid.forEach(({ token, amount }, i) => {
       const route = routes[i];
       if (same(token, swapper.token)) return;
-      // In dollars now: what the quote fetches, or else the token itself.
-      const price = current.get(key(token));
+      // At prices now: what the quote fetches, or else the token itself.
+      const price = current?.of.get(key(token));
       const known = tokens.get(key(token));
       const worth = !route
         ? undefined
         : outputPrice !== undefined
-          ? usdOf(route.out, swapper.decimals, outputPrice)
+          ? worthOf(route.out, swapper.decimals, outputPrice)
           : price !== undefined && known
-            ? usdOf(amount, known.decimals, price)
+            ? worthOf(amount, known.decimals, price)
             : undefined;
-      const cost = found ? (gasUsd(route ? route.gas + APPROVAL_GAS : 0n, found) ?? 0) : 0;
+      const cost = found ? (gasCost(route ? route.gas + APPROVAL_GAS : 0n, found, current)?.value ?? 0) : 0;
       if (!route || worth === undefined || worth < 2 * cost)
         return void left.push(tokens.get(key(token))?.symbol ?? token);
       items.push({
@@ -295,7 +315,7 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
     const least = kept + items.reduce((sum, { route }) => sum + route.minPaid, 0n);
     const swappedNames = items.map(({ token }) => token.symbol);
     into.textContent = items.length
-      ? `≈ ${figure(out, swapper.decimals)} ${swapper.symbol}, at least ${figure(least, swapper.decimals)}, from ${list(swappedNames)}${left.length ? `; ${count(left.length, "token", "tokens")} kept` : ""}`
+      ? `${figure(out, swapper.decimals)} ${swapper.symbol}, at least ${figure(least, swapper.decimals)}, from ${list(swappedNames)}${left.length ? `; ${count(left.length, "token", "tokens")} kept` : ""}`
       : `None worth swapping into ${swapper.symbol}`;
     const chosen = radios.find(({ checked }) => checked)?.value === "into";
     if (!items.length || !chosen) {
@@ -307,7 +327,7 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
       // The claim first; its receipt then opens the swap's own review, for the amounts it brought.
       opened.replace(claimSlips, {
         outcomeOf: (receipts) => {
-          const fragment = claimReceipts(receipts, owing, connection.address, tokens, prices);
+          const fragment = claimReceipts(receipts, owing, connection.address, tokens, current);
           const next = clone("claim-next");
           next.querySelector(".claim-swap-these")!.remove();
           const button = next.querySelector<HTMLButtonElement>(".claim-swap-next")!;
@@ -327,7 +347,7 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
           if (!exact.items.length) button.remove();
           button.addEventListener("click", () => {
             refused.hidden = true;
-            void openSwapReview(exact, connection, tokens, found).then((reason) => {
+            void openSwapReview(exact, connection, tokens, found, current).then((reason) => {
               if (!reason) return;
               refused.textContent = reason;
               refused.hidden = false;
@@ -348,17 +368,14 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
       into.textContent = "Base refused both together: they come as they are.";
       return opened.replace(claimSlips, { outcomeOf: asTheyAre });
     }
-    if (run && found)
-      sayGas(
-        gasUsd(
-          run.reduce((sum, { gas }) => sum + gas, 0n),
-          found,
-        ),
-      );
+    if (run) {
+      withSwap = run.reduce((sum, { gas }) => sum + gas, 0n);
+      sayGas();
+    }
     opened.replace(all, {
       atomic: true,
       outcomeOf: (receipts) => {
-        const fragment = claimReceipts(receipts, owing, connection.address, tokens, prices);
+        const fragment = claimReceipts(receipts, owing, connection.address, tokens, current);
         fragment.append(swapReceipt(receipts, swapPlan, tokens, connection.address));
         return Promise.resolve(fragment);
       },
@@ -369,6 +386,8 @@ export async function openClaim(entries: Entry[], connection: Connection, hooks:
     if (chosen === "into") void plan(swapperOf(select.value)!);
     else {
       planned++;
+      withSwap = undefined;
+      sayGas();
       opened.replace(claimSlips, { outcomeOf: asTheyAre });
     }
   };

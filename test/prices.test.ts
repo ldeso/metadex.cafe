@@ -4,6 +4,7 @@ import { zeroAddress, type Address } from "viem";
 import { same, type Call } from "../src/chain.ts";
 import {
   ANCHORS,
+  FIAT_FEEDS,
   EXCHANGES,
   HYDREX_PRICING,
   SWAP_PRICING,
@@ -129,7 +130,9 @@ const [USDC, EURC] = [swapperOf("usdc")!.token, swapperOf("eurc")!.token];
 const TOKEN: Token = { address: "0x0000000000000000000000000000000000000001", decimals: 18, symbol: "TKN" };
 const LATE: Token = { address: "0xffffffffffffffffffffffffffffffffffffff01", decimals: 18, symbol: "LATE" };
 const USDC_TOKEN: Token = { address: USDC, decimals: 6, symbol: "USDC" };
-// Chainlink's answers, by token.
+const EURC_TOKEN: Token = { address: EURC, decimals: 6, symbol: "EURC" };
+// Chainlink's answers, by token, last updated a month ago.
+const UPDATED = NOW - 30 * 86_400;
 const USDC_USD = 0.999;
 const EURC_USD = 1.15;
 const ANSWERS = new Map<Address, number>([
@@ -181,7 +184,7 @@ function market(pools: Fake[], answers = ANSWERS) {
       const fed = ANCHORS.find(({ feed }) => same(feed.address, address));
       if (fed) {
         const answer = answers.get(fed.address);
-        return answer === undefined ? undefined : [1n, BigInt(Math.round(answer * 1e8)), 0n, BigInt(NOW), 1n];
+        return answer === undefined ? undefined : [1n, BigInt(Math.round(answer * 1e8)), 0n, BigInt(UPDATED), 1n];
       }
       const factory = EXCHANGES.find((each) => same(each.factory, address));
       if (factory) {
@@ -216,15 +219,16 @@ function market(pools: Fake[], answers = ANSWERS) {
 }
 
 const priceOf = async (pools: Fake[], token = TOKEN, exchanges = SWAP_PRICING) =>
-  (await pricesAt([token], new Map(), NOW, NOW, exchanges, market(pools).reader)).get(token.address.toLowerCase());
+  (await pricesAt([token], new Map(), NOW, NOW, exchanges, market(pools).reader)).of.get(token.address.toLowerCase());
 
 test("USDC and EURC take Chainlink's prices, and a token priced in USDC takes USDC's", async () => {
   const { reader } = market([{ exchange: HYDREX, token: TOKEN, now: [2_000, 8_000] }]);
   for (const exchanges of [SWAP_PRICING, HYDREX_PRICING]) {
     const prices = await pricesAt([TOKEN], new Map(), NOW, NOW, exchanges, reader);
-    close(prices.get(USDC.toLowerCase())!, USDC_USD);
-    close(prices.get(EURC.toLowerCase())!, EURC_USD);
-    close(prices.get(TOKEN.address)!, 4 * USDC_USD);
+    assert.equal(prices.unit, "USD");
+    close(prices.of.get(USDC.toLowerCase())!, USDC_USD);
+    close(prices.of.get(EURC.toLowerCase())!, EURC_USD);
+    close(prices.of.get(TOKEN.address)!, 4 * USDC_USD);
   }
 });
 
@@ -233,7 +237,88 @@ test("an anchor whose feed fails is priced like any other token", async () => {
   const pools: Fake[] = [{ exchange: HYDREX, token: USDC_TOKEN, anchor: EURC, now: [11_500, 10_000] }];
   const answers = new Map([[EURC, EURC_USD]]);
   const prices = await pricesAt([USDC_TOKEN], new Map(), NOW, NOW, SWAP_PRICING, market(pools, answers).reader);
-  close(prices.get(USDC.toLowerCase())!, 1);
+  close(prices.of.get(USDC.toLowerCase())!, 1);
+});
+
+test("an anchor whose feed fails is priced first, so that the tokens priced against it are too", async () => {
+  // EURC at 1.15 USDC, and TOKEN at 2 EURC, in Hydrex's pools only.
+  const pools: Fake[] = [
+    { exchange: HYDREX, token: EURC_TOKEN, now: [10_000, 11_500] },
+    { exchange: HYDREX, token: TOKEN, anchor: EURC, now: [5_000, 10_000] },
+  ];
+  const answers = new Map([[USDC, USDC_USD]]);
+  const prices = await pricesAt([TOKEN], new Map(), NOW, NOW, HYDREX_PRICING, market(pools, answers).reader);
+  assert.equal(prices.unit, "USD");
+  close(prices.of.get(EURC.toLowerCase())!, 1.15 * USDC_USD);
+  close(prices.of.get(TOKEN.address)!, 2 * 1.15 * USDC_USD);
+});
+
+test("without any of Chainlink's prices, prices are in USDC, from the pools alone", async () => {
+  const pools: Fake[] = [
+    { exchange: HYDREX, token: EURC_TOKEN, now: [10_000, 11_500] },
+    { exchange: HYDREX, token: TOKEN, anchor: EURC, now: [5_000, 10_000] },
+  ];
+  const prices = await pricesAt([TOKEN], new Map(), NOW, NOW, HYDREX_PRICING, market(pools, new Map()).reader);
+  assert.equal(prices.unit, "USDC");
+  assert.equal(prices.of.get(USDC.toLowerCase()), 1);
+  close(prices.of.get(EURC.toLowerCase())!, 1.15);
+  close(prices.of.get(TOKEN.address)!, 2.3);
+});
+
+test("now, the feeds' latest rounds count, even one newer than the visitor's clock", async () => {
+  // The first round of a new phase, updated a minute after NOW: a clock a minute behind the chain's.
+  const { reader } = market([{ exchange: HYDREX, token: TOKEN, now: [2_000, 8_000] }]);
+  const ahead = async (calls: Call[]) =>
+    (await reader(calls)).map((reply, i) =>
+      calls[i]!.functionName === "latestRoundData" && reply
+        ? [(3n << 64n) + 1n, (reply as bigint[])[1]!, 0n, BigInt(NOW + 60), (3n << 64n) + 1n]
+        : reply,
+    );
+  const prices = await pricesAt([TOKEN], new Map(), NOW, NOW, HYDREX_PRICING, ahead);
+  assert.equal(prices.unit, "USD");
+  close(prices.of.get(USDC.toLowerCase())!, USDC_USD);
+  close(prices.of.get(TOKEN.address)!, 4 * USDC_USD);
+});
+
+test("each currency's rate goes with dollar prices, read with the anchors' feeds; prices in USDC have none", async () => {
+  const pools: Fake[] = [{ exchange: HYDREX, token: TOKEN, now: [2_000, 8_000] }];
+  // A reader that also answers EUR / USD, at 1.12 dollars a euro, and GBP / USD, at 1.34; CHF / USD and the others fail.
+  const withRates = (answers?: Map<Address, number>) => {
+    const { reader } = market(pools, answers);
+    return async (calls: Call[]) => {
+      const replies = await reader(calls);
+      return calls.map(({ address }, i) =>
+        same(address, FIAT_FEEDS.EUR.address)
+          ? [1n, 112_000_000n, 0n, BigInt(UPDATED), 1n]
+          : same(address, FIAT_FEEDS.GBP.address)
+            ? [1n, 134_000_000n, 0n, BigInt(UPDATED), 1n]
+            : replies[i],
+      );
+    };
+  };
+  const inDollars = await pricesAt([TOKEN], new Map(), NOW, NOW, HYDREX_PRICING, withRates());
+  assert.equal(inDollars.unit, "USD");
+  assert.deepEqual(inDollars.rates, { EUR: 1.12, GBP: 1.34 });
+  const inUsdc = await pricesAt([TOKEN], new Map(), NOW, NOW, HYDREX_PRICING, withRates(new Map()));
+  assert.equal(inUsdc.unit, "USDC");
+  assert.deepEqual(inUsdc.rates, {});
+});
+
+test("now, the feeds' latest rounds are read once a minute, and shared by the prices read meanwhile", async () => {
+  const { reader } = market([{ exchange: HYDREX, token: TOKEN, now: [2_000, 8_000] }]);
+  let rounds = 0;
+  const counting = async (calls: Call[]) => {
+    rounds += calls.filter(({ functionName }) => functionName === "latestRoundData").length;
+    return reader(calls);
+  };
+  const first = await pricesAt([TOKEN], new Map(), NOW, NOW, HYDREX_PRICING, counting);
+  const read = rounds;
+  const second = await pricesAt([TOKEN], new Map(), NOW, NOW, HYDREX_PRICING, counting);
+  assert.ok(read > 0);
+  assert.equal(rounds, read, "the second read no feed again");
+  assert.deepEqual(second.of, first.of);
+  await pricesAt([TOKEN], new Map(), NOW - 3_600, NOW, HYDREX_PRICING, counting);
+  assert.ok(rounds > read, "a past flip reads its own rounds");
 });
 
 test("the deepest pool wins: of all four exchanges for the swap's page, of Hydrex's two for the Hydrex pages", async () => {
@@ -245,7 +330,7 @@ test("the deepest pool wins: of all four exchanges for the swap's page, of Hydre
   ];
   close((await priceOf(pools))!, 3 * USDC_USD);
   const { reader, asked } = market(pools);
-  close((await pricesAt([TOKEN], new Map(), NOW, NOW, HYDREX_PRICING, reader)).get(TOKEN.address)!, 4 * USDC_USD);
+  close((await pricesAt([TOKEN], new Map(), NOW, NOW, HYDREX_PRICING, reader)).of.get(TOKEN.address)!, 4 * USDC_USD);
   for (const { name, factory } of SWAP_PRICING.filter((each) => !HYDREX_PRICING.includes(each)))
     assert.ok(!asked.has(factory.toLowerCase()), `the Hydrex pages do not look in ${name}`);
 });
@@ -257,6 +342,27 @@ test("an Aero pool gives its average over the window, or its price now if its hi
     close((await priceOf([pool], token))!, 2.5 * USDC_USD);
     close((await priceOf([{ ...pool, fresh: true }], token))!, 2 * USDC_USD);
   }
+});
+
+test("at a past flip, a pool whose history falls short gives no price: not its price now", async () => {
+  const pool: Fake = { exchange: AERO, token: TOKEN, now: [10_000, 20_000], held: [10_000, 25_000] };
+  const at = async (fake: Fake) =>
+    (await pricesAt([TOKEN], new Map(), NOW - 3_600, NOW, SWAP_PRICING, market([fake]).reader)).of.get(TOKEN.address);
+  close((await at(pool))!, 2.5 * USDC_USD);
+  assert.equal(await at({ ...pool, fresh: true }), undefined);
+});
+
+test("at a past flip, a pool without a history then gives way to the next deepest; with none, today's only stands in", async () => {
+  // Deepest today, at 4 USDC, but without its history; and shallower, at 3 USDC at the flip.
+  const deep: Fake = { exchange: AERO, token: TOKEN, now: [10_000, 40_000], fresh: true };
+  const kept: Fake = { exchange: AERODROME, token: TOKEN, now: [5_000, 12_500], held: [5_000, 15_000] };
+  const at = (pools: Fake[]) => pricesAt([TOKEN], new Map(), NOW - 3_600, NOW, SWAP_PRICING, market(pools).reader);
+  const both = await at([deep, kept]);
+  close(both.of.get(TOKEN.address)!, 3 * USDC_USD);
+  assert.equal(both.standIns.size, 0);
+  const alone = await at([deep]);
+  assert.equal(alone.of.get(TOKEN.address), undefined);
+  close(alone.standIns.get(TOKEN.address)!, 4 * USDC_USD);
 });
 
 test("Aero's stable factory prices on the stable curve", async () => {
@@ -276,7 +382,7 @@ test("an exchange whose pools cannot price is refused", async () => {
   await assert.rejects(pricesAt([TOKEN], new Map(), NOW, NOW, [slipstream], market([]).reader), /cannot price/);
 });
 
-test("feeds: one read for the latest rounds, then one search for the rounds in effect at the flip", async () => {
+test("feeds: one read for the latest rounds, then one search for the rounds in effect at the flip, or none", async () => {
   // Two feeds, in their second phase, with a round an hour; and one that does not answer.
   const phase = 2n << 64n;
   const feeds: Feed[] = [1, 2, 3].map((i) => ({ address: `0x${"f".repeat(39)}${i}`, decimals: 8 }));
@@ -301,4 +407,17 @@ test("feeds: one read for the latest rounds, then one search for the rounds in e
   assert.deepEqual(await feedsAt(feeds, flip, reader), [250, 350, undefined]);
   assert.ok(reads <= 4, `${reads} reads`);
   assert.deepEqual(await feedsAt(feeds, Infinity, reader), [300, 400, undefined]);
+  // A search whose first batch of reads fails runs once more.
+  let failing = true;
+  const flaky = async (calls: Call[]) => {
+    const searching = calls.some(({ functionName }) => functionName === "getRoundData");
+    if (searching && failing) {
+      failing = false;
+      return calls.map(() => undefined);
+    }
+    return reader(calls);
+  };
+  assert.deepEqual(await feedsAt(feeds, flip, flaky), [250, 350, undefined]);
+  // Before the phase's first round, as when the feed moved to a new aggregator since, no price: not today's.
+  assert.deepEqual(await feedsAt(feeds, NOW - 3_600 * 300, reader), [undefined, undefined, undefined]);
 });

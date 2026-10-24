@@ -1,9 +1,9 @@
 import { decodeEventLog, numberToHex, parseAbi, type Address, type Hex } from "viem";
 import { blockTime, call, read, readLater, required, rpc, type Call } from "./chain.ts";
 import { CARBON_IMPACT } from "./config.ts";
-import { WEEK } from "./format.ts";
+import { WEEK, count, money, moneyAt } from "./format.ts";
 import type { Reward } from "./earnings.ts";
-import { usdOf, type Token } from "./prices.ts";
+import { worthOf, type Prices, type Token } from "./prices.ts";
 
 // Hydrex's reward contracts record, for each account and token, the start of the epoch up to which they have paid the
 // account. Every claim sets it to the start of the current epoch, even when nothing was owed, and it only grows. A claim
@@ -97,9 +97,9 @@ export async function firstReached<T>(
 export type Pair = { contract: Address; token: Address };
 // An amount of a token that a reward contract owes.
 export type Owed = Amount & { contract: Address };
-// A pair among an epoch's rewards, with what it paid the automation's votes in dollars, or 0 if that is unknown. An
-// account's share is the same in each, so this weighs the pairs for every account.
-export type Weighed = Pair & { usd: number };
+// A pair among an epoch's rewards, with what it paid the automation's votes at the epoch's prices, or 0 if that is
+// unknown. An account's share is the same in each, so this weighs the pairs for every account.
+export type Weighed = Pair & { value: number };
 // An automation's rewards in the epoch from `start`.
 export type Rewards = { start: number; pairs: Weighed[] };
 export type Standing = {
@@ -121,21 +121,23 @@ export type Standing = {
 // record in each of the epoch before's, if it voted with the automation then.
 export type Records = { last: number[]; earned: (bigint | undefined)[]; before: number[] };
 
-// Each of an epoch's rewards, weighed at the given prices: last epoch's, for the epoch before's too.
-export const weighed = (rewards: Reward[], prices: Map<string, number>): Weighed[] =>
+// Each of an epoch's rewards, weighed at the given prices: last epoch's, for the epoch before's too. A token without a
+// price then is weighed at its stand-in, today's, rather than as nothing.
+export const weighed = (rewards: Reward[], prices: Prices): Weighed[] =>
   rewards.map(({ contract, token, amount }) => {
-    const price = prices.get(token.address.toLowerCase());
-    return { contract, token: token.address, usd: price === undefined ? 0 : usdOf(amount, token.decimals, price) };
+    const address = token.address.toLowerCase();
+    const price = prices.of.get(address) ?? prices.standIns.get(address);
+    return { contract, token: token.address, value: price === undefined ? 0 : worthOf(amount, token.decimals, price) };
   });
 
 // The read of an account's record in a pair.
 export const stampOf = (id: bigint, { contract, token }: Pair): Call =>
   call(contract, rewardsAbi, "tokenTimestamp", id, token);
 
-// Each pair's weight: its dollars, or the same for each when none has a price.
+// Each pair's weight: its value, or the same for each when none has a price.
 function weights(pairs: Weighed[]): number[] {
-  const priced = pairs.some(({ usd }) => usd > 0);
-  return pairs.map(({ usd }) => (priced ? usd : 1));
+  const priced = pairs.some(({ value }) => value > 0);
+  return pairs.map(({ value }) => (priced ? value : 1));
 }
 
 const sum = (values: number[]): number => values.reduce((total, value) => total + value, 0);
@@ -254,11 +256,22 @@ export async function readEarned(
   return byAccount(values as (bigint | undefined)[], ids, pairs);
 }
 
-// Dollars at the given prices. A token without a price, or whose decimals are unknown, counts for nothing.
-export function dollars(found: Amount[], tokens: Map<string, Token>, prices: Map<string, number>): number {
+// What the amounts are worth at the given prices, in their unit. A token without a price, or whose decimals are unknown,
+// counts for nothing.
+export function valueAt(found: Amount[], tokens: Map<string, Token>, prices: Prices): number {
+  return worthIn(found, tokens, (token) => prices.of.get(token));
+}
+
+// What the amounts weigh against others at the given prices, a token without a price then at its stand-in, today's:
+// to rank them, never to show.
+export function weightAt(found: Amount[], tokens: Map<string, Token>, prices: Prices): number {
+  return worthIn(found, tokens, (token) => prices.of.get(token) ?? prices.standIns.get(token));
+}
+
+function worthIn(found: Amount[], tokens: Map<string, Token>, priceOf: (token: string) => number | undefined): number {
   return found.reduce((sum, { token, amount }) => {
-    const [known, price] = [tokens.get(token.toLowerCase()), prices.get(token.toLowerCase())];
-    return known && price !== undefined ? sum + usdOf(amount, known.decimals, price) : sum;
+    const [known, price] = [tokens.get(token.toLowerCase()), priceOf(token.toLowerCase())];
+    return known && price !== undefined ? sum + worthOf(amount, known.decimals, price) : sum;
   }, 0);
 }
 
@@ -429,4 +442,24 @@ export async function blockTimes(blocks: number[]): Promise<Map<number, number>>
 // For tests: what the reads above found is kept for the rest of the session.
 export function forgetReads(): void {
   for (const kept of [searched, firsts, logsOf, times]) kept.clear();
+}
+
+// What waits for the accounts, at prices now, with the tokens' decimals; until they are read, or without them, it shows
+// in tokens.
+export type Waiting = { tokens: Map<string, Token>; prices: Prices };
+
+// What waits for an account, in words: its worth at prices now, if read and above nothing, as "≈ $1.84", whether that
+// leaves out tokens without a price, and its tokens, as "9 tokens", unless there are none.
+export function waitingWords(
+  waiting: Amount[],
+  priced: Waiting | undefined,
+): { worth?: string; partial: boolean; tokens?: string } {
+  const value = priced ? valueAt(waiting, priced.tokens, priced.prices) : 0;
+  const addresses = new Set(waiting.map(({ token }) => token.toLowerCase()));
+  const partial = [...addresses].some((token) => !priced?.tokens.has(token) || !priced.prices.of.has(token));
+  return {
+    ...(value > 0 && { worth: money(moneyAt(value, priced!.prices)) }),
+    partial: value > 0 && partial,
+    ...(addresses.size > 0 && { tokens: count(addresses.size, "token", "tokens") }),
+  };
 }

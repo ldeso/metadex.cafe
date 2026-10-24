@@ -41,6 +41,8 @@ describe("an overdue claim against a fork after the swappers' deployment", { tim
     const needs = app(page).locator("#needs");
     const line = needs.locator("li").filter({ hasText: "#82774: payout overdue" });
     await line.waitFor({ timeout: 600_000 });
+    // In tokens at once, then at prices now.
+    await line.filter({ hasText: /payout overdue, at least (≈|<)\s\$/ }).waitFor();
     assert.match(
       await line.innerText(),
       /^Hydrex account #82774: payout overdue, at least (≈|<)\s\$[\d,.]+ in \d+ tokens?/,
@@ -58,7 +60,11 @@ describe("an overdue claim against a fork after the swappers' deployment", { tim
       true,
       "nothing sold unasked",
     );
-    assert.match(await review(page).locator(".claim-paid").innerText(), /^(≈|<)\s\$/);
+    // In tokens at once, then in money once prices now are read.
+    await review(page)
+      .locator(".claim-paid")
+      .getByText(/^(≈|<)\s\$/)
+      .waitFor();
     await shoot(page, "claim-1-390-light", review(page));
     await review(page).getByRole("button", { name: "Continue" }).click();
     // It waits in 71 contracts, in 37 tokens: asking each contract for every token would need a billion gas, so the

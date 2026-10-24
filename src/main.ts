@@ -12,7 +12,7 @@ import {
   type Automation,
   type Kind,
 } from "./config.ts";
-import { clone, fill, fillAddress, fillOwn, fillPlural, fillTime, groupAllHex, isOpen, show } from "./dom.ts";
+import { clone, fill, fillAddress, fillOwn, fillPlural, fillTime, groupAllHex, isOpen, live, show } from "./dom.ts";
 import {
   WEEK,
   bps,
@@ -22,14 +22,17 @@ import {
   earningPower,
   figure,
   list,
+  money,
+  moneyAt,
+  setCurrency,
   short,
   toEarningPower,
   units,
   until,
-  usd,
   utc,
   weekStart,
   when,
+  type Currency,
 } from "./format.ts";
 import {
   FROM_START,
@@ -72,10 +75,11 @@ import {
   showAbsent,
 } from "./last-epoch.ts";
 import { UNDER_WAY, payouts, type Entry, type Found, type UnderWay } from "./last-payout.ts";
-import { dollars } from "./receipts.ts";
+import { waitingWords } from "./receipts.ts";
 import { closeReview, openReview, refreshReview, type Hooks } from "./review.ts";
 import { hrefOf } from "./routes.ts";
 import { openClaim } from "./claim-view.ts";
+import { gasWords } from "./swap-calls.ts";
 import { allowancesLeft, initSwap, onSwapChange, resetReview, swapLine, walletChanged } from "./swap-view.ts";
 import { describe } from "./tokens.ts";
 import {
@@ -134,15 +138,25 @@ const accountName = (name: string): string =>
   !name ? "Hydrex account" : /^hydrex\b/i.test(name) ? name : `Hydrex ${name}`;
 const pageName = (name: string): string => name || "Account";
 
-// The App reads the wallet's payouts only to mark those paid late; an account's page draws its own.
-const appPayouts = payouts(undefined, (found, underWay) => {
-  late = new Set(found.entries.flatMap(({ standing, account }) => (standing?.late ? [account.id] : [])));
-  under = underWay;
-  appFound = found;
-  showUnderWay();
-  showAccounts(true);
-  showApp();
-});
+// The App reads the wallet's payouts to mark those paid late and those overdue; an account's page draws its own.
+const appPayouts = payouts(
+  undefined,
+  (found, underWay) => {
+    late = new Set(found.entries.flatMap(({ standing, account }) => (standing?.late ? [account.id] : [])));
+    under = underWay;
+    appFound = found;
+    showUnderWay();
+    showAccounts(true);
+    showApp();
+  },
+  undefined,
+  // An overdue payout says what waits in tokens, then at prices now, once read.
+  (found) => {
+    if (found !== appFound) return;
+    showApp();
+    showPosition();
+  },
+);
 
 // An account's payout through AutoMaxi is overdue when something waits for it and its keeper has not paid it: half a day
 // after the flip, the time a payout takes, for the epoch that just ended, or once it is late for the one before. Only
@@ -162,14 +176,16 @@ const overdue = (): Entry[] =>
     return entry ? [entry] : [];
   });
 
-// What waits for an overdue account, in words: "≈ $1.84 waits in 9 tokens."
-function waitsLine({ standing, earnings }: Entry): string {
+// What waits for an overdue account, in words, at prices now, or else in tokens: "≈ $1.84 in 9 tokens".
+function waitsLine({ standing }: Entry): () => string {
   const { waiting, unknown, late } = standing!;
-  const tokens = new Map(earnings!.rewards.map(({ token }) => [token.address.toLowerCase(), token]));
-  const value = dollars(waiting, tokens, earnings!.prices);
-  const n = new Set(waiting.map(({ token }) => token.toLowerCase())).size;
-  if (!n) return "from the epoch before last";
-  return `${unknown || late ? "at least " : ""}${usd(value)} in ${count(n, "token", "tokens")}`;
+  // The read it is of, whose prices may come after.
+  const read = appFound;
+  return () => {
+    const { worth, partial, tokens } = waitingWords(waiting, read?.waiting);
+    if (!tokens) return "from the epoch before last";
+    return `${unknown || late || partial ? "at least " : ""}${worth ? `${worth} in ${tokens}` : tokens}`;
+  };
 }
 // An account's page that is not the wallet's tells a payout under way from its owner's other accounts, which it reads
 // once while the account awaits its payout.
@@ -291,9 +307,9 @@ function showRecords(): void {
           ? "No record yet"
           : paid === undefined
             ? "…"
-            : usd(per * paid);
+            : () => money(moneyAt(per.value * paid, per));
     for (const place of placesOf(automation)) {
-      fill(place, { record, "record-unit": typeof per === "number" ? "per 1,000 Earning Power" : "" });
+      fill(place, { record, "record-unit": per ? "per 1,000 Earning Power" : "" });
     }
   }
 }
@@ -462,7 +478,7 @@ function accountItem({ account, status }: Member, group: string, pickable: boole
   else item.querySelector(".status")!.replaceWith(statusLine(status, true));
   const earned = earnedByAccount(account.id);
   if (earned !== undefined) {
-    fill(item, { "earned-usd": usd(earned) });
+    fill(item, { "earned-worth": () => money(earned) });
     show(".earned", true, item);
   }
   show(".late", late.has(account.id), item);
@@ -654,20 +670,17 @@ function estimate(element: Element, accounts: Account[], automation: Automation,
     .then(
       (per) => {
         const paid = traits[automation.kind].paid();
-        week.textContent =
-          per === null
-            ? "No record yet"
-            : per === undefined || paid === undefined
-              ? noEstimate
-              : usd(per * thousands * paid);
+        if (per && paid !== undefined) live(week, () => money(moneyAt(per.value * thousands * paid, per)));
+        else fill(element, { "estimate-week": per === null ? "No record yet" : noEstimate });
       },
-      () => (week.textContent = noEstimate),
+      () => fill(element, { "estimate-week": noEstimate }),
     );
+  // Without ETH's price, in the ETH that pays it.
   gasCosts()(join(accounts, automation), owner).then(
-    (dollars) => (gas.textContent = dollars === undefined ? "Not read" : usd(dollars)),
+    ({ wei, prices }) => live(gas, () => gasWords(wei, prices)),
     (error) => {
       console.error(error);
-      gas.textContent = "Not read";
+      fill(element, { "estimate-gas": "Not read" });
     },
   );
 }
@@ -727,7 +740,7 @@ const appView = document.querySelector<HTMLElement>('.view[data-view="app"]')!;
 
 function need(
   shape: string,
-  words: string,
+  words: string | (() => string),
   act: { link?: string; button?: (event: MouseEvent) => void; label: string },
 ): DocumentFragment {
   const item = clone("need");
@@ -764,8 +777,9 @@ function showApp(): void {
         items.push(need("stopped", `${named} is partly in ${status.automation.name}`, change));
     }
     for (const entry of overdue()) {
+      const waits = waitsLine(entry);
       items.push(
-        need("stopped", `Hydrex account #${entry.account.id}: payout overdue, ${waitsLine(entry)}`, {
+        need("stopped", () => `Hydrex account #${entry.account.id}: payout overdue, ${waits()}`, {
           label: "Claim now",
           button: (event) => claim([entry.account], showApp, event.currentTarget as HTMLButtonElement),
         }),
@@ -817,12 +831,13 @@ function showApp(): void {
   const line = connection ? swapLine() : undefined;
   swapYours.hidden = !line;
   if (line) {
-    swapYours.textContent =
+    live(swapYours, () =>
       line.reading && !line.count
         ? "…"
         : line.count
-          ? `${count(line.count, "token", "tokens")} · ${usd(line.usd)}${line.reading ? " · …" : ""}`
-          : "Nothing to swap";
+          ? `${count(line.count, "token", "tokens")} · ${money(line.worth)}${line.reading ? " · …" : ""}`
+          : "Nothing to swap",
+    );
   }
   void showAllows(holdings, left);
   // A payout becomes overdue as time passes: the groups' Claim follows.
@@ -970,7 +985,7 @@ function showPosition(): void {
   });
   view.querySelector(".position-status")!.replaceChildren(statusLine(status, !theirs));
   const earned = earnedByAccount(account.id);
-  if (earned !== undefined) fill(view, { "position-earned": usd(earned) });
+  if (earned !== undefined) fill(view, { "position-earned": () => money(earned) });
   show(".position-earned-row", earned !== undefined, view);
   show(".position-owner-row", theirs, view);
   fillAddress(view, "position-owner", owner, short(owner));
@@ -1155,6 +1170,10 @@ connectButton.addEventListener("click", () => {
 for (const slot of document.querySelectorAll(".wallet-slot")) slot.append(clone("wallet-picker"));
 initSwap({ connection: () => connection, hooks });
 onSwapChange(showApp);
+// The footer's currency, for the visit: every figure in money is drawn again in it.
+const currencySelect = document.querySelector<HTMLSelectElement>("footer .currency")!;
+currencySelect.addEventListener("change", () => setCurrency(currencySelect.value as Currency));
+
 groupAllHex(document);
 // A reload keeps the hash, and so the view.
 document.querySelector("#error .again")!.addEventListener("click", () => location.reload());

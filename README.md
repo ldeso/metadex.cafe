@@ -51,11 +51,11 @@ This README is for whoever runs the site. The design and the plan are in [design
   when the browser has one, from a list when it has several. Once one is connected, the wallet's chip, which leads to
   the App, takes its place. Only the App lists the wallets in the page too.
 - Home is a heading and the button to the App (`#app`). A wallet connected on Home or About leads on to the App; the
-  name in the header still leads Home afterwards. The App, "Your Wallet", starts with what needs you across the
+  name in the header still leads Home afterwards. The App, "Your wallet", starts with what needs you across the
   products, each with one action: a Hydrex account in a stopped automation, an overdue payout, approvals left to the
   swappers. Then the products, each with what you hold in it: the Hydrex automations (`#hydrex`) and the swap (`#swap`).
   Its Approvals button lists every approval this wallet gave the café's contracts, with the call that undoes it. The
-  pages under it name the way back in their title, as "Your Wallet › Hydrex"; Home and About do not.
+  pages under it name the way back in their title, as "Your wallet › Hydrex"; Home and About do not.
 - The page always says "Hydrex account", as "account" alone means an address in crypto: "8 Hydrex accounts", "Hydrex
   Main Protocol Account #26432".
 - Details open from a round info button beside what they explain, as a popup: on a phone, a sheet from the foot of the
@@ -78,7 +78,9 @@ This README is for whoever runs the site. The design and the plan are in [design
 - Joining takes two steps: what it allows, with what a week at last epoch's rate would pay and the gas of the change,
   then the calls, each a bill in its own words, with its fields in full. About (`#about`) holds the page's own facts:
   its address, the cookies it stores, none, and its version. The footer leads to it, and stays at the foot of the
-  screen. [design/audit.md](design/audit.md) says why the page is laid out so.
+  screen. It also picks the currency the figures show in, for the visit: USD, EUR, GBP, CHF, AUD or CAD, the most traded
+  that Chainlink prices on Base. The page stores the choice nowhere. [design/audit.md](design/audit.md) says why the
+  page is laid out so.
 - Inside Safe{Wallet}, it proposes all the calls as one Safe transaction.
 
 Nobody controls the swappers either: their code fixes the fee, 1% of each route's output, the Safe it goes to, the
@@ -253,10 +255,17 @@ cd dist && for file in $(find . -type f | sort); do curl -fsS "https://metadex.c
   that record, such as its owner on Hydrex. The page then says that the account was last claimed outside Carbon Impact,
   and shows no receipt.
 - What votes earned is for the last epoch only.
-- Prices are approximate. USDC, WETH, cbBTC and EURC take Chainlink's; other tokens, a half-hour average in their
-  deepest pool against one of those. Prices now, for swaps, come from Aero Basic Pools, Aerodrome Basic Pools, Hydrex
-  Classic Pools and Hydrex Integral, the first of two as deep; prices at an epoch's end, for what it earned and paid,
-  from Hydrex's pools only. A token without a deep enough pool has no price.
+- Prices are approximate. USDC, WETH, cbBTC and EURC take Chainlink's; other tokens, and one of those four whose feed
+  does not answer, a half-hour average in their deepest pool against one of those priced. Prices now, for swaps, gas and
+  what waits to be claimed, come from Aero Basic Pools, Aerodrome Basic Pools, Hydrex Classic Pools and Hydrex Integral,
+  the first of two as deep; prices at an epoch's end, for what it earned and paid, from Hydrex's pools only, and only
+  from what they and Chainlink recorded then: a feed without a round of that time gives no price, and a pool without its
+  history gives way to the next deepest. A token none of whose pools has one has no price at that time; its price now
+  only weighs its rewards against the others, to tell a payout from a claim of a few small ones, and is never shown. If
+  none of Chainlink's feeds answers, the figures are in USDC instead of dollars, from the pools alone. In another
+  currency, a figure in dollars is converted at Chainlink's rate on Base of its own time, such as GBP / USD, at the flip
+  or now; without a round of that time, it stays in dollars. Gas without ETH's price shows in ETH. A token without a
+  deep enough pool has no price.
 - Only the admin key, or a call from the owner's own address made elsewhere, can change a payout address.
 - The swap knows only the tokens on its list, Hydrex's reward tokens, those added by address, and those a wallet lists
   with ERC-7811's `wallet_getAssets`: no RPC lists a wallet's tokens. Routes pass through WETH, USDC, cbBTC and HYDX

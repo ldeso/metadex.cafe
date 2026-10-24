@@ -6,20 +6,26 @@ import {
   bps,
   clean,
   compact,
+  CURRENCIES,
   count,
+  currency,
   date,
   day,
   earningPower,
   fraction,
   hexLines,
   listWith,
+  money,
+  moneyAt,
+  onCurrency,
+  setCurrency,
   short,
   units,
   until,
-  usd,
   walletLines,
   weekStart,
   when,
+  type Currency,
 } from "../src/format.ts";
 
 const FLIP = 1_792_627_200; // Thu 22 Oct 2026, 00:00 UTC
@@ -80,12 +86,52 @@ test("counts, with plurals", () => {
   assert.equal(count(1234, "empty account", "empty accounts"), "1,234 empty accounts");
 });
 
-test("dollars are approximate, with no break after the sign", () => {
+test("what prices value is approximate, in dollars or USDC, with no break after the sign or before the unit", () => {
+  const usd = (value: number) => money({ value, unit: "USD" });
   assert.equal(usd(692.85), "≈\u00a0$693");
   assert.equal(usd(0.7724), "≈\u00a0$0.77");
   assert.equal(usd(111_078.6), "≈\u00a0$111,079");
   assert.equal(usd(0.001), "<\u00a0$0.01");
   assert.equal(usd(0), "$0");
+  const usdc = (value: number) => money({ value, unit: "USDC" });
+  assert.equal(usdc(692.85), "≈\u00a0693\u00a0USDC");
+  assert.equal(usdc(0.7724), "≈\u00a00.77\u00a0USDC");
+  assert.equal(usdc(0.001), "<\u00a00.01\u00a0USDC");
+  assert.equal(usdc(0), "0\u00a0USDC");
+});
+
+test("in the currency picked, at its rate of the prices' own time; without one, as the prices are", () => {
+  const then = { unit: "USD", rates: { EUR: 1.25, GBP: 1.25, CHF: 1.25, AUD: 0.625, CAD: 0.625 } } as const;
+  assert.deepEqual(CURRENCIES, ["USD", "EUR", "GBP", "CHF", "AUD", "CAD"]);
+  assert.equal(currency(), "USD");
+  assert.equal(money(moneyAt(10, then)), "≈\u00a0$10.00");
+  try {
+    setCurrency("EUR");
+    assert.equal(money(moneyAt(10, then)), "≈\u00a0€8.00");
+    assert.equal(money(moneyAt(250, then)), "≈\u00a0€200");
+    assert.equal(money(moneyAt(0.005, then)), "<\u00a0€0.01");
+    assert.equal(money({ value: 10, unit: "USD" }), "≈\u00a0$10.00", "no rate for the time");
+    assert.equal(money({ value: 10, unit: "USDC", rates: then.rates }), "≈\u00a010.00\u00a0USDC", "no dollar prices");
+    // Each sign tells its currency from the dollar's.
+    const shown = (picked: Currency) => (setCurrency(picked), money(moneyAt(10, then)));
+    assert.equal(shown("GBP"), "≈\u00a0£8.00");
+    assert.equal(shown("CHF"), "≈\u00a0CHF\u00a08.00");
+    assert.equal(shown("AUD"), "≈\u00a0A$16.00");
+    assert.equal(shown("CAD"), "≈\u00a0CA$16.00");
+    assert.equal(money({ value: 10, unit: "USD", rates: { EUR: 1.25 } }), "≈\u00a0$10.00", "no CAD rate for the time");
+  } finally {
+    setCurrency("USD");
+  }
+});
+
+test("a change of currency calls each listener once, and none when it stays", () => {
+  let calls = 0;
+  onCurrency(() => calls++);
+  setCurrency("USD");
+  assert.equal(calls, 0);
+  setCurrency("EUR");
+  setCurrency("USD");
+  assert.equal(calls, 2);
 });
 
 test("large numbers of votes, and shares", () => {

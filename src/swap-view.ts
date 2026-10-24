@@ -1,11 +1,11 @@
 import type { Address } from "viem";
 import { now, same, type Receipt } from "./chain.ts";
 import { AUTOMATIONS, DEFAULT_OUTPUT, HYDX, SWAPPERS, swapperOf, type Swapper } from "./config.ts";
-import { clone, fill, fillAddress, show } from "./dom.ts";
+import { clone, fill, fillAddress, show, showWorth } from "./dom.ts";
 import { tokensOf } from "./earnings.ts";
-import { bps, count, figure, fraction, list, short, usd } from "./format.ts";
+import { bps, count, figure, fraction, list, money, moneyAt, short, type Money } from "./format.ts";
 import { earningsOf, onEarnings } from "./last-epoch.ts";
-import { pricesNow, usdOf, type Token } from "./prices.ts";
+import { pricesIn, pricesNow, worthOf, type Prices, type Token } from "./prices.ts";
 import type { Amount } from "./receipts.ts";
 import { openReview, type Hooks, type ReviewPage, type Slip } from "./review.ts";
 import { hrefOf, type Route as PageRoute } from "./routes.ts";
@@ -27,7 +27,7 @@ import {
   type Found,
   type Route,
 } from "./swap.ts";
-import { approveSlip, costs, gasUsd, hopsWords, swapSlip, type Costs } from "./swap-calls.ts";
+import { approveSlip, costs, ethCost, gasCost, hopsWords, swapSlip, type Costs } from "./swap-calls.ts";
 import {
   allowancesOf,
   describe,
@@ -68,12 +68,12 @@ type Row = {
   balance: bigint;
   allowance: bigint;
   amount: bigint;
-  // Dollars per whole token, by the page's own prices, if it has one.
+  // Its price per whole token, by the page's own prices, if it has one.
   price?: number | undefined;
   // undefined until its routes are read; null when the swapper has none.
   found?: Found | null;
   failed: boolean;
-  // What its quote is worth in dollars, and why it is not ticked by default.
+  // What its quote is worth at those prices, and why it is not ticked by default.
   worth?: number | undefined;
   reason?: string | undefined;
   ticked: boolean;
@@ -86,7 +86,7 @@ type Scan = {
   swapper: Swapper;
   rows: Row[];
   tokens: Map<string, Token>;
-  prices: Map<string, number>;
+  prices: Prices;
   costs?: Costs | undefined;
   reading: boolean;
   failed: boolean;
@@ -119,10 +119,11 @@ const tell = (): void => listeners.forEach((listener) => listener());
 export const onSwapChange = (listener: () => void): void => void listeners.push(listener);
 
 // The App's line on the swap: how many tokens are worth swapping, and what they would fetch, once read.
-export function swapLine(): { count: number; usd: number; reading: boolean } | undefined {
+export function swapLine(): { count: number; worth: Money; reading: boolean } | undefined {
   if (!scan) return undefined;
   const worth = scan.rows.filter((row) => row.found && !row.reason);
-  return { count: worth.length, usd: worth.reduce((sum, row) => sum + (row.worth ?? 0), 0), reading: scan.reading };
+  const value = worth.reduce((sum, row) => sum + (row.worth ?? 0), 0);
+  return { count: worth.length, worth: moneyAt(value, scan.prices), reading: scan.reading };
 }
 
 export const allowancesLeft = (): Allowance[] | undefined => allowances;
@@ -135,36 +136,74 @@ export function prefill(amounts: Amount[]): void {
   if (owner) void startScan(owner, swapperShown());
 }
 
-// What the output is worth, in its own units for each dollar, if it has a price.
-function inOutput(dollars: number, scanned: Scan): bigint | undefined {
-  const price = scanned.prices.get(key(scanned.swapper.token));
+// A sum at the page's prices, in the output's own units, if it has a price.
+function inOutput(value: number, scanned: Scan): bigint | undefined {
+  const price = scanned.prices.of.get(key(scanned.swapper.token));
   if (!price) return undefined;
-  return BigInt(Math.floor((dollars / price) * 10 ** scanned.swapper.decimals));
+  return BigInt(Math.floor((value / price) * 10 ** scanned.swapper.decimals));
 }
 
-const outputUsd = (amount: bigint, scanned: Scan): number | undefined => {
-  const price = scanned.prices.get(key(scanned.swapper.token));
-  return price === undefined ? undefined : usdOf(amount, scanned.swapper.decimals, price);
+const outputValue = (amount: bigint, scanned: Scan): number | undefined => {
+  const price = scanned.prices.of.get(key(scanned.swapper.token));
+  return price === undefined ? undefined : worthOf(amount, scanned.swapper.decimals, price);
 };
+
+// An amount of the output, exactly, then what it is worth at the prices, if they price the output, quieter: as a quote.
+function showOutput(element: Element, amount: bigint, swapper: Swapper, prices: Prices | undefined, sign = ""): void {
+  const price = prices?.of.get(key(swapper.token));
+  showWorth(
+    element,
+    `${sign}${figure(amount, swapper.decimals)} ${swapper.symbol}`,
+    price === undefined
+      ? undefined
+      : () => `${sign}${money(moneyAt(worthOf(amount, swapper.decimals, price), prices!))}`,
+  );
+}
+
+// Gas, as a quote: in the ETH that pays it, then what it is worth, if ETH has a price.
+function showGas(element: Element, wei: bigint, prices: Prices | undefined): void {
+  const cost = ethCost(wei, prices);
+  showWorth(element, `${figure(wei, 18)} ETH`, cost && (() => money(cost)));
+}
+
+// A swap's figures, as the summary and the bill both show them: what it fetches, in the element `fetched` names, the 1%,
+// what reaches you, the least that may, and the gas; without the gas price, `noCosts`.
+function showBill(
+  root: ParentNode,
+  fetched: string,
+  { out, fee, least, gas }: { out: bigint; fee: bigint; least: bigint; gas: bigint },
+  swapper: Swapper,
+  prices: Prices | undefined,
+  found: Costs | undefined,
+  noCosts: string,
+): void {
+  const part = (name: string) => root.querySelector(`.${name}`)!;
+  showOutput(part(fetched), out, swapper, prices);
+  showOutput(part("swap-fee"), fee, swapper, prices, "− ");
+  showOutput(part("swap-paid"), out - fee, swapper, prices);
+  showOutput(part("swap-least"), least, swapper, prices);
+  if (found) showGas(part("swap-gas"), gas * found.gasPrice, prices);
+  else fill(root, { "swap-gas": noCosts });
+}
 
 // Whether a row is worth its gas, and why not, in words.
 function judge(row: Row, scanned: Scan): void {
   const { found } = row;
   if (row.failed) {
-    row.reason = "not read";
+    row.reason = "Not read";
     return;
   }
   if (found === undefined) return;
   if (found === null) {
-    row.reason = "no route";
+    row.reason = "No route";
     return;
   }
   row.worth =
-    outputUsd(found.out, scanned) ??
-    (row.price === undefined ? undefined : usdOf(row.amount, row.token.decimals, row.price));
+    outputValue(found.out, scanned) ??
+    (row.price === undefined ? undefined : worthOf(row.amount, row.token.decimals, row.price));
   const gas = found.gas + (row.allowance < row.amount ? APPROVAL_GAS : 0n);
-  const cost = scanned.costs ? (gasUsd(gas, scanned.costs) ?? 0) : 0;
-  row.reason = row.worth === undefined ? "no price" : row.worth < CLEARS * cost ? "below gas" : undefined;
+  const cost = scanned.costs ? (gasCost(gas, scanned.costs, scanned.prices)?.value ?? 0) : 0;
+  row.reason = row.worth === undefined ? "No price" : row.worth < CLEARS * cost ? "Below gas" : undefined;
 }
 
 function drawRow(row: Row, scanned: Scan): void {
@@ -177,16 +216,18 @@ function drawRow(row: Row, scanned: Scan): void {
   fill(node, {
     "swap-symbol": token.symbol,
     "swap-amount": figure(row.amount, token.decimals),
-    "swap-fetches": found ? ` ≈ ${figure(found.out, swapper.decimals)} ${swapper.symbol}` : "",
   });
+  const fetches = node.querySelector(".swap-fetches")!;
+  if (found) showOutput(fetches, found.out, swapper, scanned.prices);
+  else fetches.replaceChildren();
   // Only why a token is not ticked, or that its route is being found: the route itself is in the review.
   const routeLine = node.querySelector(".swap-route")!;
   routeLine.textContent = found === undefined && !row.failed ? "…" : (row.reason ?? "");
   show(".swap-lookalike", !!row.like, node);
   if (row.like) fill(node, { "swap-like": row.like.symbol });
   // A quote far under the page's own price says so, with both.
-  const page = row.price === undefined ? undefined : usdOf(row.amount, token.decimals, row.price);
-  const quoted = found ? outputUsd(found.out, scanned) : undefined;
+  const page = row.price === undefined ? undefined : worthOf(row.amount, token.decimals, row.price);
+  const quoted = found ? outputValue(found.out, scanned) : undefined;
   const under = !row.reason && page !== undefined && quoted !== undefined && quoted < page * (1 - CHECK);
   show(".swap-check", under, node);
   if (under) {
@@ -227,7 +268,7 @@ function drawAll(): void {
 }
 
 // What the ticked tokens fetch together, row by row: the quote, less the 1%, is what reaches you, and the slippage picked
-// sets the least that may. Gas is paid apart, in ETH.
+// sets the least that may. Gas is paid apart, in ETH. Each in tokens, then what it is worth.
 function summarise(scanned: Scan, ticked: Row[]): void {
   const { swapper } = scanned;
   const sells = view.querySelector<HTMLElement>(".swap-sells")!;
@@ -243,15 +284,8 @@ function summarise(scanned: Scan, ticked: Row[]): void {
   const approvals = ticked.filter((row) => row.allowance < row.amount).length;
   const swaps = split(ticked.map((row) => row.found!.route)).length;
   const gas = BigInt(approvals) * APPROVAL_GAS + swapGas(ticked.map((row) => row.found!.route));
-  const dollars = scanned.costs && gasUsd(gas, scanned.costs);
-  const of = (amount: bigint) => `${figure(amount, swapper.decimals)} ${swapper.symbol}`;
-  fill(breakdown, {
-    "swap-quoted": `≈ ${of(out)}`,
-    "swap-fee": `− ${of(fee)}`,
-    "swap-paid": `≈ ${of(out - fee)}`,
-    "swap-least": of(least),
-    "swap-gas": dollars === undefined ? "…" : usd(dollars),
-  });
+  const { costs: found, prices } = scanned;
+  showBill(breakdown, "swap-quoted", { out, fee, least, gas }, swapper, prices, found, "…");
   splitLine.hidden = swaps < 2;
   splitLine.textContent = `${swaps} swaps`;
 }
@@ -279,7 +313,7 @@ async function startScan(owner: Address, swapper: Swapper): Promise<void> {
     swapper,
     rows: [],
     tokens: new Map(),
-    prices: new Map(),
+    prices: pricesIn("USD"),
     reading: true,
     failed: false,
     done: 0,
@@ -308,7 +342,7 @@ async function startScan(owner: Address, swapper: Swapper): Promise<void> {
     const amounts = new Map(held.map((token) => [token, holdings.get(token)!.balance]));
     scanned.prices = await pricesNow([...described.values()], amounts).catch((error: unknown) => {
       console.error(error);
-      return new Map<string, number>();
+      return pricesIn("USD");
     });
     if (!current()) return;
     const rows = held.flatMap((address): Row[] => {
@@ -324,14 +358,14 @@ async function startScan(owner: Address, swapper: Swapper): Promise<void> {
         balance,
         allowance,
         amount,
-        price: scanned.prices.get(address),
+        price: scanned.prices.of.get(address),
         failed: false,
         ticked: keptRow?.touched ? keptRow.ticked : false,
         touched: !!keptRow?.touched,
       };
       return [{ ...row, node: rowNode() }];
     });
-    const value = (row: Row) => (row.price === undefined ? -1 : usdOf(row.amount, row.token.decimals, row.price));
+    const value = (row: Row) => (row.price === undefined ? -1 : worthOf(row.amount, row.token.decimals, row.price));
     rows.sort((a, b) => value(b) - value(a));
     scanned.rows = rows;
     rowsList.replaceChildren(...rows.map(({ node }) => node));
@@ -343,8 +377,8 @@ async function startScan(owner: Address, swapper: Swapper): Promise<void> {
     );
     let next = 0;
     const gasValue = (gas: bigint) => {
-      const dollars = scanned.costs && gasUsd(gas, scanned.costs);
-      return dollars === undefined ? 0n : (inOutput(dollars, scanned) ?? 0n);
+      const cost = scanned.costs && gasCost(gas, scanned.costs, scanned.prices);
+      return cost ? (inOutput(cost.value, scanned) ?? 0n) : 0n;
     };
     await Promise.all(
       Array.from({ length: WORKERS }, async () => {
@@ -507,7 +541,7 @@ async function reviewSwap(): Promise<void> {
   reviewFailed.hidden = true;
   reviewButton.textContent = "Simulating…";
   try {
-    const opened = await openSwapReview(plan, connection, scanned.tokens, scanned.costs);
+    const opened = await openSwapReview(plan, connection, scanned.tokens, scanned.costs, scanned.prices);
     if (opened) {
       reviewFailed.textContent = opened;
       reviewFailed.hidden = false;
@@ -518,12 +552,13 @@ async function reviewSwap(): Promise<void> {
   }
 }
 
-// Opens the swap's review, or says why not.
+// Opens the swap's review, or says why not. Gas is valued at the prices the swap was judged at.
 export async function openSwapReview(
   plan: Plan,
   connection: Connection,
   tokens: Map<string, Token>,
   found?: Costs,
+  prices?: Prices,
 ): Promise<string | undefined> {
   const { swapper } = plan;
   const { approvals, swaps, slips } = await planSteps(plan, connection, tokens);
@@ -557,10 +592,10 @@ export async function openSwapReview(
     });
   });
   // A bill: each token, what it fetches and its route by its tokens and pools, then what they all fetch, the 1%, what
-  // reaches you, and the least that may, which the slippage sets. Gas heads it, as it is paid apart, in ETH.
+  // reaches you, and the least that may, which the slippage sets. Gas heads it, as it is paid apart, in ETH. Each sum in
+  // tokens, then what it is worth.
   const body = clone("swap-before");
   const lines = body.querySelector(".swap-lines")!;
-  const of = (amount: bigint) => `${figure(amount, swapper.decimals)} ${swapper.symbol}`;
   let out = 0n;
   let least = 0n;
   for (const { token, route } of plan.items) {
@@ -571,9 +606,10 @@ export async function openSwapReview(
     fill(line, {
       "line-symbol": token.symbol,
       "line-amount": figure(route.amount, token.decimals),
-      "line-fetches": reason ? "skipped" : `≈ ${of(fetched)}`,
+      "line-fetches": reason ? "Skipped" : "",
       "line-route": hopsWords(route, tokens),
     });
+    if (!reason) showOutput(line.querySelector(".line-fetches")!, fetched, swapper, prices);
     show(".line-skip", !!reason, line);
     if (reason) fill(line, { "line-skip-words": `Skipped: ${reason}` });
     lines.append(line);
@@ -582,15 +618,19 @@ export async function openSwapReview(
   const gas = simulated
     ? simulated.reduce((sum, { gas }) => sum + gas, 0n)
     : BigInt(approvals.length) * APPROVAL_GAS + swapGas(plan.items.map(({ route }) => route));
-  const dollars = found ? gasUsd(gas, found) : undefined;
+
+  showBill(
+    body,
+    "swap-fetched",
+    { out, fee, least, gas },
+    swapper,
+    prices,
+    found,
+    `${gas.toLocaleString("en-GB")} gas`,
+  );
   fill(body, {
     "swap-output": swapper.symbol,
-    "swap-fetched": `≈ ${of(out)}`,
-    "swap-fee": `− ${of(fee)}`,
-    "swap-paid": `≈ ${of(out - fee)}`,
-    "swap-least": of(least),
     "swap-slippage": `${plan.yours ? "Your slippage" : "Slippage"}: ${bps(plan.margin)}`,
-    "swap-gas": dollars === undefined ? `${gas.toLocaleString("en-GB")} gas` : usd(dollars),
     "swap-simulated": "Not simulated: these are quotes.",
   });
   show(".swap-simulated", !simulated, body);

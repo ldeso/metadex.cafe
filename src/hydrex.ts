@@ -18,6 +18,7 @@ import {
 } from "./config.ts";
 import { WEEK, clean, list, weekStart } from "./format.ts";
 import conduits from "./hydrex-conduits.json" with { type: "json" };
+import { anchorsNow, type Prices } from "./prices.ts";
 import { costs } from "./swap-calls.ts";
 import type { Slip } from "./review.ts";
 import type { Tx } from "./wallet.ts";
@@ -516,11 +517,11 @@ export async function failedChecks(): Promise<Checks> {
   };
 }
 
-// What gas costs in dollars for some calls from `from`, at today's prices: each costs about what the first does, as they
-// differ only by account, plus the most Base charges to post it to Ethereum. Undefined if ETH has no price. The gas
-// price and ETH's price are the swap's, read at most once a minute; what posting costs for each size of call is read
-// once for all the calls priced.
-export type GasCost = (steps: Tx[], from: Address) => Promise<number | undefined>;
+// What gas costs for some calls from `from`, in wei, with today's prices to show it at: each costs about what the first
+// does, as they differ only by account, plus the most Base charges to post it to Ethereum. The gas price and the prices
+// are read at most once a minute, for all of the page; what posting costs for each size of call, once for all the calls
+// priced.
+export type GasCost = (steps: Tx[], from: Address) => Promise<{ wei: bigint; prices: Prices | undefined }>;
 
 export function gasCosts(): GasCost {
   const posting = new Map<bigint, Promise<bigint>>();
@@ -536,16 +537,16 @@ export function gasCosts(): GasCost {
   };
   return async (steps, from) => {
     const [first] = steps;
-    if (!first) return 0;
+    // Nothing to send costs nothing, in any currency: no prices are read for it.
+    if (!first) return { wei: 0n, prices: undefined };
     // The call's data, and about as much again for the transaction's other fields.
     const size = BigInt((first.data.length - 2) / 2 + 100);
-    const [{ gasPrice, ethUsd }, gas, l1] = await Promise.all([
+    const [{ gasPrice }, gas, l1, prices] = await Promise.all([
       costs(),
       rpc<Hex>("eth_estimateGas", [{ from, to: first.to, data: first.data }]),
       postingOf(size),
+      anchorsNow(),
     ]);
-    if (ethUsd === undefined) return undefined;
-    const wei = (BigInt(gas) * gasPrice + l1) * BigInt(steps.length);
-    return (Number(wei) / 1e18) * ethUsd;
+    return { wei: (BigInt(gas) * gasPrice + l1) * BigInt(steps.length), prices };
   };
 }
