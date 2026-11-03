@@ -34,6 +34,8 @@
   --gap-l: 2rem;
   --radius: 12px;
   --inset: 1.25rem;
+  --card-pad: 0.75rem;
+  --popup: 36rem;
   --small: 0.875rem;
   --label: 0.8125rem;
   --paper: light-dark(#fdfcf9, #18120f);
@@ -317,7 +319,7 @@ button,
 .Facts-tile,
 .Menu-item,
 .Notice {
-  padding: 0.75rem var(--gap);
+  padding: var(--card-pad) var(--gap);
 }
 .Card,
 .Skeleton-item,
@@ -352,7 +354,7 @@ button,
 /* The review is a modal dialog, which the browser keeps a little under the screen's size. Popups get no such limit,
    so their insets keep them off the screen's edges. */
 dialog {
-  inline-size: 36rem;
+  inline-size: var(--popup);
   padding: 0 var(--inset) var(--inset);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -364,29 +366,23 @@ dialog {
 dialog[popover] {
   inset-inline: 1rem;
   inline-size: auto;
-  max-inline-size: 36rem;
-  max-block-size: 44rem;
-}
-@media (height <= 47rem) {
-  dialog[popover] {
-    max-block-size: 90svh;
-  }
+  max-inline-size: var(--popup);
+  max-block-size: min(44rem, 90svh);
 }
 dialog::backdrop {
   background: rgb(0 0 0 / 0.4);
 }
 dialog:popover-open,
 dialog[open] {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: var(--gap);
 }
-/* The negative margin undoes the popup's inset, 1.25rem, so that the bar reaches its edges. */
 .Dialog-bar {
   position: sticky;
   inset-block-start: 0;
   z-index: 1;
-  margin-inline: -1.25rem;
+  margin-inline: calc(-1 * var(--inset));
   padding: 0.5rem 0.5rem 0.5rem var(--inset);
   border-block-end: 1px solid var(--line);
   background: var(--paper);
@@ -541,6 +537,7 @@ dialog[open] {
 /* Groups are spaced by margins, not spaces, so that a copy is plain hex. A link's underline doesn't reach into the
    inline-block halves, so each half draws its own. */
 .Hex {
+  --hex-gap: 0.4ch;
   display: inline-block;
   vertical-align: top;
 }
@@ -548,19 +545,17 @@ dialog[open] {
   text-decoration: none;
 }
 /* An address or a hash that doesn't fit on one line breaks between its halves, the second under the first's groups,
-   past the "0x" and its gap. */
+   past the "0x". */
 .Hex--halves {
-  padding-inline-start: 2.4ch;
-  text-indent: -2.4ch;
+  text-indent: calc(2ch + var(--hex-gap)) hanging;
 }
 .Hex-quad,
 .Hex-half {
-  margin-inline-end: 0.4ch;
   white-space: nowrap;
 }
-.Hex-quad:last-child,
-.Hex-half:last-child {
-  margin-inline-end: 0;
+.Hex-quad:not(:last-child),
+.Hex-half:not(:last-child) {
+  margin-inline-end: var(--hex-gap);
 }
 .Hex-quad--wallet:not(:last-child) {
   margin-inline-end: 1ch;
@@ -602,7 +597,7 @@ dialog[open] {
   margin-block-start: var(--gap-s);
 }
 .Klima-line--end {
-  justify-content: flex-end;
+  justify-content: end;
 }
 .Klima {
   flex: none;
@@ -750,9 +745,6 @@ dialog[open] {
 
 .SkipLink {
   position: absolute;
-  inset-block-start: -10rem;
-}
-.SkipLink:focus {
   inset-block-start: var(--gap-s);
   padding: var(--gap-s);
   background: var(--paper);
@@ -847,7 +839,7 @@ dialog[open] {
 
 .Ticks {
   display: flex;
-  align-items: flex-start;
+  align-items: start;
   gap: 0.75rem;
 }
 .Ticks:has(.Ticks-box:checked) {
@@ -863,14 +855,13 @@ dialog[open] {
 .Ticks-box {
   flex: none;
 }
-/* The negative margins undo the card's padding, 0.75rem by 1rem, so that the box's target reaches the card's edge. */
 .Ticks-target {
   display: flex;
   align-self: stretch;
-  margin-block: -0.75rem;
-  margin-inline-start: -1rem;
-  padding-block: 0.75rem;
-  padding-inline-start: 1rem;
+  margin-block: calc(-1 * var(--card-pad));
+  margin-inline-start: calc(-1 * var(--gap));
+  padding-block: var(--card-pad);
+  padding-inline-start: var(--gap);
   cursor: pointer;
 }
 
@@ -909,7 +900,7 @@ dialog[open] {
   justify-content: space-between;
 }
 .u-spreadTop {
-  align-items: flex-start;
+  align-items: start;
 }
 .u-grow {
   flex: 1;
@@ -974,8 +965,7 @@ dialog[open] {
 /* Words after a shape wrap under the words, not under the shape. */
 .u-hang {
   flex: 1 1 16rem;
-  padding-inline-start: 1.125em;
-  text-indent: -1.125em;
+  text-indent: 1.125em hanging;
 }
 .u-smallSelect {
   min-block-size: 1.75rem;
@@ -986,7 +976,8 @@ dialog[open] {
 .u-hideEmpty:empty {
   display: none;
 }
-.u-visuallyHidden {
+.u-visuallyHidden,
+.SkipLink:not(:focus) {
   position: absolute;
   inline-size: 1px;
   block-size: 1px;
