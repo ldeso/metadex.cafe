@@ -437,6 +437,7 @@ dialog[open] {
 .Facts-item,
 .Facts-tile {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 0.125rem;
 }
@@ -453,6 +454,7 @@ dialog[open] {
 }
 .Facts-figure {
   font-weight: 700;
+  overflow-wrap: break-word;
 }
 @media (width <= 30rem) {
   .Facts--columns {
@@ -461,7 +463,7 @@ dialog[open] {
   }
   .Facts-item,
   .Facts-tile {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto 1fr;
     column-gap: var(--gap-l);
     align-items: baseline;
   }
