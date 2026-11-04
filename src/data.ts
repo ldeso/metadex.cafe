@@ -2,15 +2,15 @@ import type { Address } from "viem";
 import { memo, andThen, use, type Got } from "./cache.ts";
 import { checks } from "./checks.ts";
 import { AUTOMATIONS, type Automation } from "./config.ts";
-import { WEEK, moneyAt, weekStart, type Money } from "./format.ts";
+import { WEEK, weekStart, type Money } from "./format.ts";
 import { automationAt, readAccount, readAccounts, readFreshness, readMatchaLatte, type Holdings } from "./hydrex.ts";
 import { awaited, readPayouts, readTime, type Payouts } from "./payouts.ts";
 import {
   allEarnings,
   holdersOf,
   lastEpoch,
+  shareOf,
   stakesOf,
-  valueOf,
   votesEarned,
   type Earnings,
   type Stake,
@@ -68,18 +68,16 @@ export function accountEarned(holdings: Holdings, id: bigint): Got<Money | null>
     const stake = all.get(id);
     if (!stake) return { value: null };
     const automation = automationAt(stake.delegate);
-    return andThen(automation ? earnings(automation) : holderEarnings(stake.delegate), (of) => ({
-      value:
-        of.votes && (automation || of.pools.length)
-          ? moneyAt((Number(stake.votes) / Number(of.votes)) * valueOf(of).total, of.prices)
-          : null,
-    }));
+    return andThen(automation ? earnings(automation) : holderEarnings(stake.delegate), (of) => {
+      if (!of.votes || (!automation && !of.pools.length)) return { value: null };
+      return { value: shareOf(of, stake.votes) };
+    });
   });
 }
 const holders = (holdings: Holdings) => andThen(stakes(holdings), (all) => ({ value: holdersOf(all.values()) }));
 
 // The payouts of the accounts in the automations, as of the last epoch Hydrex has ended. Read again when Hydrex moves
-// on, and every five minutes while a due payout has not come.
+// on, and every five minutes while a due payout has not come or some rewards could not be weighed.
 export function payouts(holdings: Holdings): Got<Payouts> {
   const key = holdings.accounts.map(({ id, delegate, claimer }) => `${id}:${delegate}:${claimer}`).join(" ");
   return andThen(epoch(), (start) =>
@@ -87,7 +85,7 @@ export function payouts(holdings: Holdings): Got<Payouts> {
       `payouts ${holdings.owner} ${holdings.epochStart} ${start} ${key}`,
       () =>
         readPayouts(holdings, (automation) => memo(earningsKey(automation, start), readEarnings(automation, start))),
-      (found: Payouts) => (awaited(found) ? 5 * MINUTE : Infinity),
+      (found: Payouts) => (awaited(found) || found.unread ? 5 * MINUTE : Infinity),
     ),
   );
 }

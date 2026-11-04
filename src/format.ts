@@ -10,6 +10,7 @@ const whole = number({ maximumFractionDigits: 0 });
 const hundredths = number({ minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const percent = number({ style: "percent", maximumFractionDigits: 2 });
 const roughPercent = number({ style: "percent", maximumFractionDigits: 1 });
+const tenthsPercent = number({ style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const threeDigits = number({ maximumSignificantDigits: 3 });
 const fourDigits = number({ maximumSignificantDigits: 4 });
 const plurals = new Intl.PluralRules(LANG);
@@ -17,8 +18,8 @@ const and = new Intl.ListFormat(LANG, { type: "conjunction" });
 const POINT = hundredths.formatToParts(0.5).find(({ type }) => type === "decimal")!.value;
 
 export const units = (value: bigint): string => whole.format(value / 10n ** 18n);
-// Two decimals, so that a receipt's figures line up: "18,686.45", "< 0.01", "0".
-export const amount = (value: bigint, decimals: number): string => (value === 0n ? "0" : fixed(value, decimals, 2));
+// Two decimals, so that a receipt's figures line up: "18,686.45", "< 0.01", "0.00".
+export const amount = (value: bigint, decimals: number): string => fixed(value, decimals, 2);
 export function figure(value: bigint, decimals: number): string {
   const n = Number(value) / 10 ** decimals;
   return n >= 10_000 ? whole.format(n) : fourDigits.format(n);
@@ -60,15 +61,23 @@ export const voteFigure = (votes: bigint): string => (votes > 0n && votes < 10n 
 export const voteWords = (votes: bigint): string =>
   `${voteFigure(votes)} ${votes > 0n && votes < 2n * 10n ** 18n ? "vote" : "votes"}`;
 export const bps = (value: bigint): string => percent.format(Number(value) / 10_000);
-export const fraction = (value: number): string => roughPercent.format(value);
+// For example "16.7%" or "3%". With `column`, always to a tenth, as in a column: "3.0%", "< 0.1%".
+export const fraction = (value: number, column = false): string =>
+  !column ? roughPercent.format(value) : value > 0 && value < 0.0005 ? "< 0.1%" : tenthsPercent.format(value);
 
 // The unit prices are in: USD, or USDC when no dollar price was found. `rates` gives each currency's price in dollars
 // at the prices' time.
 type Unit = "USD" | "USDC";
 export type Rates = Partial<Record<Fiat, number>>;
 export type Basis = { unit: Unit; rates?: Rates | undefined };
-export type Money = Basis & { value: number };
-export const moneyAt = (value: number, { unit, rates }: Basis): Money => ({ value, unit, rates });
+// `atLeast` when some of what it sums had no price.
+export type Money = Basis & { value: number; atLeast?: true };
+export const moneyAt = (value: number, { unit, rates }: Basis, atLeast = false): Money => ({
+  value,
+  unit,
+  rates,
+  ...(atLeast && { atLeast: true }),
+});
 
 const inCurrency = (currency: Currency, digits: number) =>
   number({
@@ -98,8 +107,11 @@ const toCents = (sum: Money): number => {
 // The difference between two sums as each is shown, rounded to the cent, so that a column adds up as it reads.
 export const between = (from: Money, to: Money): Money => ({ ...to, value: toCents(to) - toCents(from) });
 
-// For example "≈ $692", "≈ −€0.69", "< £0.01" or "≈ 0.77 USDC". With `cents`, always to the cent, as in a column.
-export function money(sum: Money, cents = false): string {
+// For example "≈ $692", "≈ −€0.69", "< £0.01", "≈ 0.77 USDC" or "At least ≈ $3.10". With `cents`, always to the cent,
+// as in a column.
+export const money = (sum: Money, cents = false): string =>
+  `${sum.atLeast ? "At\u00a0least\u00a0" : ""}${figureOf(sum, cents)}`;
+function figureOf(sum: Money, cents: boolean): string {
   const [shown, rate] = shownOf(sum);
   const value = sum.value / rate;
   const [withCents, without] = FORMATS[shown]!;
