@@ -1,9 +1,15 @@
-import type { Address } from "viem";
+import type { Address, Hex } from "viem";
 
 export const CHAIN_ID = 8453;
 // Asked in this order. Prices read old blocks, which Base's RPC and drpc serve; publicnode serves only recent ones.
 export const RPCS = ["https://mainnet.base.org", "https://base.drpc.org", "https://base-rpc.publicnode.com"];
 export const MULTICALL3: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
+// Base makes its blocks on a fixed schedule: one every 2 seconds from genesis, then five a second from Denim's first
+// block, on 5 November 2026 at 18:00:01 UTC. Each entry is a first block, its time and the milliseconds between blocks.
+export const BLOCK_SCHEDULE = [
+  { block: 0, time: 1_686_789_347, ms: 2_000 },
+  { block: 53_556_127, time: 1_793_901_601, ms: 200 },
+];
 export const BASESCAN = "https://basescan.org";
 // Base's GasPriceOracle, which says what posting a transaction to Ethereum costs.
 export const GAS_PRICE_ORACLE: Address = "0x420000000000000000000000000000000000000F";
@@ -42,11 +48,33 @@ export const APPROVAL_LOGIC: Address = "0x4B0BC0889EB524Dbae36d409fF733851E9B4f6
 export const VOTER: Address = "0xc69E3eF39E3fFBcE2A1c570f8d3ADF76909ef17b";
 export const ACCOUNT_NAMES: Address = "0x998cf40a742460b4eBbFB569A0D23eA91976c0d3";
 
+// Aero, whose root chain is Base. The FactoryRegistry lists its gauges, each with its pool and rewards manager.
+export const AERO: Address = "0x3f5bF3EdAc59d650D8fDf9657a71F2f904A3a4Ee";
+export const AERO_ESCROW: Address = "0xBF7977E1521e9a3032bf7243Ee4712f311f13915";
+export const AERO_VOTER: Address = "0x49d7d4f17Ec56Ef8fA04E464AF5D1A4942CC31e6";
+export const LEAF_VOTER: Address = "0x382409fad8503FbCdbB27A4211551fa03e884078";
+export const FACTORY_REGISTRY: Address = "0x7b2A2c12dC5Ea2a31455952a05031C3E4BB28F3E";
+// Aero's own module, which stakes approve when they join a Relay.
+export const PAYMENTS_MODULE: Address = "0xBe8e5149Dc0fE28d124dE4222b7Fb332De99AA79";
+export type GaugeKind = "volatile" | "stable" | "cl";
+export const GAUGE_FACTORIES: { address: Address; kind: GaugeKind }[] = [
+  { address: "0x9FBCf2Df0DC553ce40Ef63963Bff465b76792B7E", kind: "volatile" },
+  { address: "0x1e0f776E88649285f99e65Fa599aD6e0f9D97800", kind: "stable" },
+  { address: "0xf437f62053ACB121665b8fDBfeA8F214FB8E589d", kind: "cl" },
+];
+// The Aero Autopilot the page names and compares with: a stake its Relay owns, shown only while it does.
+export type Autopilot = { id: bigint; name: string; relay: Address };
+export const AUTOPILOTS: Autopilot[] = [
+  { id: 20366n, name: "Autopilot USDC Maxi", relay: "0xAfa7cA53e0A63d94218728842ED286308435DD86" },
+];
+
 export const WETH: Address = "0x4200000000000000000000000000000000000006";
 export const USDC: Address = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 export const CBBTC: Address = "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf";
-const EURC: Address = "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42";
+export const EURC: Address = "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42";
 export const HYDX: Address = "0x00000e7efa313F4E11Bfff432471eD9423AC6B30";
+// A pool is a blue chip when both its tokens are among these.
+export const BLUE_CHIPS: Address[] = [USDC, EURC, WETH, CBBTC, AERO];
 
 export const CURRENCIES = ["USD", "EUR", "GBP", "CHF", "AUD", "CAD"] as const;
 export type Currency = (typeof CURRENCIES)[number];
@@ -106,10 +134,18 @@ export const SWAPPERS: Swapper[] = [
 export const DEFAULT_OUTPUT: Output = "usdc";
 export const swapperOf = (output: string): Swapper | undefined => SWAPPERS.find((each) => each.output === output);
 
-// The swappers' exchanges, in the order the page lists them. `id` is the value of the swapper's `Exchange` enum. For
+// The swappers' exchanges, in the order pricing prefers them. `id` is the value of the swapper's `Exchange` enum. For
 // Uniswap v4, `factory` is the PoolManager.
 export type ExchangeKind = "algebra" | "pair" | "solidly" | "slipstream" | "aerodrome" | "v2" | "v3" | "v4";
-export type Exchange = { id: number; name: string; kind: ExchangeKind; factory: Address; stable?: boolean };
+// `codeHash`: the init code hash of the pairs a factory has made, for one whose pair code an upgrade could change.
+export type Exchange = {
+  id: number;
+  name: string;
+  kind: ExchangeKind;
+  factory: Address;
+  stable?: boolean;
+  codeHash?: Hex;
+};
 export const EXCHANGES: Exchange[] = [
   { id: 2, name: "Aero Basic Pools", kind: "solidly", factory: "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2" },
   {
@@ -127,12 +163,24 @@ export const EXCHANGES: Exchange[] = [
   { id: 11, name: "Uniswap v4", kind: "v4", factory: "0x498581fF718922c3f8e6A244956aF099B2652b2b" },
   { id: 10, name: "Uniswap v3", kind: "v3", factory: "0x33128a8fC17869897dcE68Ed026d694621f6FDfD" },
   { id: 9, name: "Uniswap v2", kind: "v2", factory: "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6" },
-  { id: 1, name: "Hydrex Classic Pools", kind: "pair", factory: "0xC47F17c4fd96F50eFD2A2448ceDe5C185c084bf0" },
+  {
+    id: 1,
+    name: "Hydrex Classic Pools",
+    kind: "pair",
+    factory: "0xC47F17c4fd96F50eFD2A2448ceDe5C185c084bf0",
+    codeHash: "0x9bbd03d1e1f14c9b95dda0aea4eb438b212c58a1cf9aa3d5dfad574e312e3946",
+  },
   { id: 0, name: "Hydrex Integral", kind: "algebra", factory: "0x36077D39cdC65E1e3FB65810430E5b2c4D5fA29E" },
 ];
-// Prices come from Aero's, Aerodrome's and Hydrex's pools, and at an epoch's end from Hydrex's only. Of two equally
-// deep pools, the first listed wins.
+// Prices come from Aero's, Aerodrome's and Hydrex's pools, and at an epoch's end from Hydrex's only, in tiers, each
+// searched only for what those before left unpriced. Aerodrome's Slipstream pools, the costliest to look up, come last.
+// Of two equally deep pools in a tier, the first listed wins.
 const PRICED = ["solidly", "slipstream", "aerodrome", "pair", "algebra"] as const;
 export type PricedKind = (typeof PRICED)[number];
-export const PRICING = EXCHANGES.filter(({ kind }) => (PRICED as readonly ExchangeKind[]).includes(kind));
-export const HYDREX_PRICING = PRICING.filter(({ kind }) => kind === "pair" || kind === "algebra");
+const priced = EXCHANGES.filter(({ kind }) => (PRICED as readonly ExchangeKind[]).includes(kind));
+const aerodromeSlipstream = ({ kind, name }: Exchange) => kind === "slipstream" && name.startsWith("Aerodrome ");
+export const PRICING: Exchange[][] = [
+  priced.filter((each) => !aerodromeSlipstream(each)),
+  priced.filter(aerodromeSlipstream),
+];
+export const HYDREX_PRICING: Exchange[][] = [priced.filter(({ kind }) => kind === "pair" || kind === "algebra")];
