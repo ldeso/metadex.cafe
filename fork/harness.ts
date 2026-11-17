@@ -41,7 +41,7 @@ import { WEEK, weekStart } from "../src/format.ts";
 import { lastEpoch, votesEarned, type Reward } from "../src/rewards.ts";
 import { settledBelow } from "../src/rpc.ts";
 import { SAFE_ORIGIN } from "../src/wallet.ts";
-import { runsCalls } from "./rpc-cache.ts";
+import { bodyOf, runsCalls } from "./rpc-cache.ts";
 
 export const CONDUIT = MATCHA_LATTE.address;
 export const BLOCK = 58_400_000; // Mon 16 Nov 2026, 23:06 UTC, after Base Denim made five blocks a second
@@ -49,7 +49,7 @@ export const FLIP = 1_795_046_400; // Thu 19 Nov 2026, 00:00 UTC, when the epoch
 export const SITE = "https://metadex.cafe";
 const DIST = fileURLToPath(new URL("../dist/", import.meta.url));
 export const RPC_ORIGINS = RPCS.map((url) => new URL(url).origin);
-const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type" };
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type, content-encoding" };
 
 // What each owner holds at `BLOCK`.
 export const MEMBER = getAddress("0x388b2d29e7919d45b1b8f6e88b8a13a392f97b40"); // #9540 in Matcha Latte, #14485 its own
@@ -478,7 +478,7 @@ export async function serve(route: Route, { origins, rpc, safe }: Served): Promi
   }
   if (RPC_ORIGINS.includes(origin)) {
     if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
-    const body = request.postData() ?? "";
+    const body = bodyOf(request.postDataBuffer(), (await request.allHeaders())["content-encoding"]);
     if (rpc.refuse?.(body)) return route.abort();
     const answered = rpc.answer?.(body);
     if (answered !== undefined)

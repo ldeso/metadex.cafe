@@ -1,8 +1,14 @@
 import type { Address, Hex } from "viem";
 
 export const CHAIN_ID = 8453;
-// Asked in this order. Prices read old blocks. Base's RPC and drpc serve those, but publicnode serves only recent ones.
-export const RPCS = ["https://mainnet.base.org", "https://base.drpc.org", "https://base-rpc.publicnode.com"];
+// Base's own RPC. Wallets that don't know Base yet are given it, and the browser tests fork through it by default.
+export const BASE_RPC = "https://mainnet.base.org";
+// Asked in this order. drpc comes first because it reads gzipped requests (see `GZIP_RPCS`). Prices read old blocks.
+// drpc and Base's RPC serve those, but publicnode serves only recent ones.
+export const RPCS = ["https://base.drpc.org", BASE_RPC, "https://base-rpc.publicnode.com"];
+// The RPCs that a page may send gzipped requests to. Base's RPC reads them, but its CORS headers don't let a page send
+// them. publicnode doesn't read them.
+export const GZIP_RPCS = ["https://base.drpc.org"];
 export const MULTICALL3: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
 // Base makes its blocks on a fixed schedule: one every 2 seconds from genesis, then five a second from Denim's first
 // block, on 5 November 2026 at 18:00:01 UTC. Each entry is a first block, its time in seconds, and the milliseconds
